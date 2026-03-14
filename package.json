@@ -1,0 +1,21 @@
+{
+  "name": "news-app",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "homepage": "https://github.com/GeorgeThomas1863/news-app#readme",
+  "bugs": {
+    "url": "https://github.com/GeorgeThomas1863/news-app/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeorgeThomas1863/news-app.git"
+  },
+  "license": "ISC",
+  "author": "George H. Thomas",
+  "main": "app.js",
+  "scripts": {
+    "start": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
