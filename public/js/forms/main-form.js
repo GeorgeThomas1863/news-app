@@ -1,4 +1,4 @@
-export const buildNewsForm = async (data) => {
+export const buildMainForm = async (data) => {
   const mainContainer = document.createElement("div");
   mainContainer.id = "main-container";
   mainContainer.innerHTML = "";
