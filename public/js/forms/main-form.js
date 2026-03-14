@@ -4,10 +4,9 @@ export const buildMainForm = async (data) => {
   mainContainer.innerHTML = "";
 
   const navElement = await buildNavBar();
-  const searchZone = await buildSearchZone();
   const bodySection = await buildBodySection(data);
 
-  mainContainer.append(navElement, searchZone, bodySection);
+  mainContainer.append(navElement, bodySection);
 
   return mainContainer;
 };
@@ -72,10 +71,11 @@ export const buildBodySection = async (data) => {
   const body = document.createElement("div");
   body.className = "body-section";
 
+  const searchZone = await buildSearchZone(); // move it in here
   const topBlock = await buildTopNewsBlock(data.topNews);
   const categoriesSection = await buildCategoriesSection(data.categories);
 
-  body.append(topBlock, categoriesSection);
+  body.append(searchZone, topBlock, categoriesSection);
 
   return body;
 };
