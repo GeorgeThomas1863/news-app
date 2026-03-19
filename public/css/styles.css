@@ -58,3 +58,95 @@ button {
 }
 
 /* -------------------------- */
+
+.btn-submit {
+  width: 100%;
+  padding: 16px 24px;
+  font-family: "Roboto Condensed", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #ffffff;
+  /* background: #357abd; */
+  background: #2563a8;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.25);
+}
+
+.btn-submit:hover {
+  background: linear-gradient(135deg, #3573b8 0%, #2563a8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 144, 226, 0.35);
+}
+
+.btn-submit:active {
+  transform: translateY(0);
+  background: linear-gradient(135deg, #1d5398 0%, #164388 100%);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.25);
+}
+
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  width: 100%;
+  padding: 14px 48px 14px 16px;
+  font-size: 16px;
+  font-weight: 400;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.password-input:hover {
+  /* border-color: #3b82f6; */
+  border-color: #164388;
+}
+
+.password-input:focus {
+  border-color: #164388;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.password-input::placeholder {
+  color: #a0aec0;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #718096;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #374151;
+}
+
+.password-toggle-btn:focus {
+  outline: 2px solid #164388;
+  outline-offset: 2px;
+}
+
+.password-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}

@@ -1,4 +1,4 @@
-import { recordFailedAttempt, clearAttempts } from "../middleware/auth-rate-limit.js";
+import { recordFailedAttempt, clearAttempts } from "../middleware/rate-limit.js";
 
 export const authController = (req, res) => {
   if (!req.body || !req.body.pw) {

@@ -20,7 +20,7 @@ export const buildAuthPwListItem = async () => {
   const authPwLabel = document.createElement("label");
   authPwLabel.id = "auth-label";
   authPwLabel.setAttribute("for", "auth-pw-input");
-  authPwLabel.textContent = "Welcome to the Nork Tracker 5000";
+  authPwLabel.textContent = "Welcome to the News Aggregator 5000";
 
   const authPwWrapper = document.createElement("div");
   authPwWrapper.className = "password-input-wrapper";
