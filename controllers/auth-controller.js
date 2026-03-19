@@ -8,7 +8,7 @@ export const authController = (req, res) => {
   }
 
   //pw check
-  if (req.body.pw !== process.env.ADMIN_PW) {
+  if (req.body.pw !== process.env.SITE_PW) {
     recordFailedAttempt(req.ip);
     res.json({ success: false, redirect: "/401" });
     return;
@@ -17,5 +17,5 @@ export const authController = (req, res) => {
   // auth pw
   clearAttempts(req.ip);
   req.session.authenticated = true;
-  res.json({ success: true, redirect: "/admin" });
+  res.json({ success: true, redirect: "/" });
 };

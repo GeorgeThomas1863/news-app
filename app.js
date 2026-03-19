@@ -1,3 +1,8 @@
+//ADD COLLAPSE 
+//FIX SCROLL
+
+//BUILD ENTIRE BACKEND
+
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env" });
