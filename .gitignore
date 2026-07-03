@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+docs/
+
+# Env
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Claude working files
+.claude/.tmp/
+.claude/.pics/
+.claude/settings.local.json
+.playwright-mcp/
+
+# Editor
+.vscode/
