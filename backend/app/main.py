@@ -86,3 +86,9 @@ app = FastAPI(title="news-app", lifespan=lifespan)
 app.include_router(auth.router, prefix="/api")
 app.include_router(stories_routes.router, prefix="/api")
 app.include_router(pipeline_routes.router, prefix="/api")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", port=config.BACKEND_PORT, reload=True)

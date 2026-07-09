@@ -15,12 +15,12 @@ FastAPI (Python 3.13, uv) · MongoDB · React + Vite · Anthropic (Haiku filter 
 cd backend
 uv sync
 uv run pytest
-uv run uvicorn app.main:app --reload   # http://localhost:8000
+uv run python -m app.main              # serves on BACKEND_PORT (default 8000)
 
-# frontend (proxies /api to localhost:8000)
+# frontend (proxies /api to the backend on BACKEND_PORT)
 cd frontend
 npm install
-npm run dev                            # http://localhost:5173
+npm run dev                            # serves on FRONTEND_PORT (default 5173)
 ```
 
 ## Configuration
@@ -36,5 +36,6 @@ npm run dev                            # http://localhost:5173
 docker compose up -d --build
 ```
 
-Frontend listens on host port 8080 — put the VPS reverse proxy / TLS in front of it
-and set `SECURE_COOKIES=true` in `.env`. Mongo is not exposed outside the compose network.
+Frontend listens on host port `FRONTEND_PORT` (default 8080) — put the VPS reverse proxy /
+TLS in front of it and set `SECURE_COOKIES=true` in `.env`. Mongo is not exposed outside
+the compose network.

@@ -17,6 +17,7 @@ TG_API_ID = os.environ.get("TG_API_ID")
 TG_API_HASH = os.environ.get("TG_API_HASH")
 TG_SESSION = os.environ.get("TG_SESSION")
 SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "false").lower() == "true"
+BACKEND_PORT = int(os.environ.get("BACKEND_PORT", "8000"))
 
 # --- sources (moves to UI settings in a later version) ---
 RSS_FEEDS = [
