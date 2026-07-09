@@ -20,6 +20,8 @@ docs/
 .env.development
 .env.production
 .env.test
+.env.example
+env.example
 
 # Claude working files
 .claude/.tmp/

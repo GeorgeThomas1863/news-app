@@ -1,7 +1,35 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Personal news intelligence app — FastAPI backend"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "anthropic>=0.116.0",
+    "bcrypt>=5.0.0",
+    "fastapi>=0.139.0",
+    "feedparser>=6.0.12",
+    "httpx>=0.28.1",
+    "pyjwt>=2.13.0",
+    "pymongo>=4.17.0",
+    "python-dotenv>=1.2.2",
+    "telethon>=1.44.0",
+    "uvicorn[standard]>=0.51.0",
+    "voyageai>=0.4.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+    # TestClient still runs fine on httpx; installing the httpx2 successor was
+    # blocked in this environment — run `uv add --dev httpx2` to adopt it and drop this filter.
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]
