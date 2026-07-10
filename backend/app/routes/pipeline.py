@@ -15,11 +15,21 @@ async def trigger_run(request: Request):
     return {"success": True, "message": "pipeline run started"}
 
 
+@router.post("/pipeline/stop")
+async def stop_pipeline():
+    return runner.pause()
+
+
+@router.post("/pipeline/resume")
+async def resume_pipeline():
+    return runner.resume()
+
+
 @router.get("/pipeline/status")
 async def get_status():
     docs = [d async for d in db.pipeline_runs.find({}).sort("started_at", -1).limit(1)]
     run = serialize_run(docs[0]) if docs else None
-    return {"running": runner.is_running(), "run": run}
+    return {"running": runner.is_running(), "paused": runner.is_paused(), "run": run}
 
 
 def serialize_run(run):

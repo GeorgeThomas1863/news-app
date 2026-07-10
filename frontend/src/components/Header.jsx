@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getPipelineStatus, logout, triggerPipelineRun } from "../api.js";
+import {
+  getPipelineStatus,
+  logout,
+  resumePipeline,
+  stopPipeline,
+  triggerPipelineRun,
+} from "../api.js";
 import { formatTimeAgo } from "../time.js";
 
 const POLL_INTERVAL_MS = 5000;
@@ -54,12 +60,24 @@ const Header = ({ onRefreshed, onLogout }) => {
     }
   };
 
+  const paused = Boolean(status && status.paused);
+
+  const togglePaused = async () => {
+    try {
+      await (paused ? resumePipeline() : stopPipeline());
+    } catch {
+      // status reload below re-syncs the button either way
+    }
+    loadStatus();
+  };
+
   const lastRun = status && status.run ? status.run : null;
 
   return (
     <header id="app-header">
       <h1 id="app-title">NEWS</h1>
       <div id="header-status">
+        {paused && <span className="paused-indicator">paused</span>}
         {status && status.running && <span className="run-indicator">updating…</span>}
         {!refreshing && lastRun && lastRun.finished_at && (
           <span className="last-run">updated {formatTimeAgo(lastRun.finished_at)}</span>
@@ -68,6 +86,9 @@ const Header = ({ onRefreshed, onLogout }) => {
       <div id="header-actions">
         <button className="header-btn" onClick={startRefresh} disabled={refreshing}>
           {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+        <button className="header-btn header-btn-secondary" onClick={togglePaused}>
+          {paused ? "Resume" : "Stop"}
         </button>
         <button className="header-btn header-btn-secondary" onClick={submitLogout}>
           Logout

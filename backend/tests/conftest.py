@@ -1,9 +1,18 @@
+import pytest
 import pytest_asyncio
 
 from app import db
+from app.pipeline import runner
 
 TEST_MONGO_URI = "mongodb://localhost:27017"
 TEST_DB_NAME = "news_app_test"
+
+
+@pytest.fixture(autouse=True)
+def reset_pipeline_flags():
+    """Paused/stop state is module-level; never let it leak between tests."""
+    yield
+    runner.resume()
 
 
 @pytest_asyncio.fixture

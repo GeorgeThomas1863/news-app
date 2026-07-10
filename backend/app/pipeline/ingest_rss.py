@@ -32,7 +32,9 @@ async def fetch_new_feed_entries(feed_name, feed_url):
 
 
 async def fetch_feed_text(url):
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+    # identified UA — some outlets (CNBC, Yahoo) reject httpx's default python UA
+    headers = {"User-Agent": "news-app/1.0 (personal RSS reader)"}
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30, headers=headers) as client:
         response = await client.get(url)
         response.raise_for_status()
         return response.text

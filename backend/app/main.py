@@ -75,6 +75,9 @@ async def connect_telegram():
 
 async def run_pipeline_on_schedule(app: FastAPI):
     while True:
+        if runner.is_paused():
+            await asyncio.sleep(config.POLL_INTERVAL_MINUTES * 60)
+            continue
         try:
             await runner.run_pipeline(app.state.tg_client, trigger="schedule")
         except Exception:

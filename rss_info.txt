@@ -1,0 +1,215 @@
+================================================================================
+RSS FEED RESEARCH — news-app
+Date: 2026-07-09
+================================================================================
+
+PURPOSE
+
+Identify the best / most popular RSS feeds currently available for the app's
+six topics (Geopolitics, Ukraine, Middle East, Markets, Tech, Domestic US),
+verify every candidate actually works, and record what was configured and why.
+
+--------------------------------------------------------------------------------
+METHODOLOGY
+--------------------------------------------------------------------------------
+
+1. Candidate list built from two directions:
+   a. Major outlets per topic (wire services, broadsheets, broadcasters,
+      specialist publications).
+   b. Web research: RSS directories and "best feeds" roundups current for 2026
+      (Feedspot category rankings, FeedWind/Mikle directory, elink roundup),
+      plus targeted searches for individual outlets (AP, Meduza).
+
+2. Every URL was LIVE-TESTED on 2026-07-09 through the app's own fetch path
+   (backend/app/pipeline/ingest_rss.py fetch_feed_text: httpx, 30s timeout,
+   redirects followed, User-Agent "news-app/1.0 (personal RSS reader)").
+   A feed only counts as working if it returned HTTP 200 AND feedparser
+   extracted at least one entry.
+
+3. Metrics captured per feed: entry count in the feed window, age of newest
+   entry, and rough posts/day extrapolated from the timestamps in one
+   snapshot. Volume numbers are approximate — one-day snapshots of feeds with
+   small windows overstate or understate; treat as order-of-magnitude.
+
+Directory listicles were used only to source candidates, never as evidence a
+feed works — several feeds they recommend are dead or unofficial (see
+FINDINGS).
+
+--------------------------------------------------------------------------------
+KEY FINDINGS
+--------------------------------------------------------------------------------
+
+1. THE MAJOR WIRE SERVICES HAVE NO OFFICIAL PUBLIC RSS.
+   - Associated Press: apnews.com feeds discontinued; live test returned
+     401/empty. "AP RSS feeds" in directories are third-party generators
+     (rss.app, RSSHub, GitHub scrapers) — unofficial and fragile.
+   - Reuters: public RSS discontinued; live test returned 401.
+   - Bloomberg: no public RSS.
+   Directory roundups still list all three, which says something about
+   directory quality. Wire coverage has to come indirectly (BBC/Guardian/NPR
+   syndicate heavily from wires).
+
+2. ZOMBIE FEEDS EXIST — feeds that return 200 and parse cleanly but are
+   abandoned. Both WSJ feeds (RSSWorldNews, RSSMarketsMain via feeds.a.dj.com)
+   parse fine but their newest entry is ~18 months old. Without checking entry
+   dates these would silently ingest nothing forever.
+
+3. USER-AGENT BLOCKING IS COMMON. CNBC (403) and Yahoo Finance (429) reject
+   httpx's default "python-httpx/x" UA but accept an honest identified UA
+   ("news-app/1.0 (personal RSS reader)"). This was fixed in the app's
+   fetch_feed_text on 2026-07-09. No browser masquerading required.
+
+4. SOME SITES HARD-BLOCK ALL NON-BROWSER CLIENTS. Institute for the Study of
+   War (understandingwar.org) returns 403 even with a full Chrome UA
+   (Cloudflare-level filtering). Unusable without scraping infrastructure.
+
+5. DATA QUALITY QUIRKS FOUND LIVE:
+   - Jerusalem Post publishes future-dated timestamps (entries dated ~3h in
+     the future). The app parses them, but recency-decay scoring would
+     slightly overrate those items.
+   - Meduza's English feed (/rss/en) is discontinued; the only working feed
+     (rss2/all) is Russian-language (0 of 30 entries English).
+   - Kyiv Independent moved its feed: /rss/ and /feed are 404; the working
+     URL is /feed/rss.
+
+6. POPULARITY CONSENSUS FROM 2026 DIRECTORIES/ROUNDUPS. The names that appear
+   consistently at the top across Feedspot's ranked categories and the
+   FeedWind/elink roundups: BBC, NYT, Guardian, Al Jazeera, NPR, WSJ, plus
+   AP/Reuters (dead, see #1); for finance: CNBC, MarketWatch, Investing.com,
+   Seeking Alpha, Motley Fool, Bloomberg (dead); international: DW, France 24.
+   Note popularity rankings reflect brand recognition, not feed health or
+   fit — hence the live testing.
+
+--------------------------------------------------------------------------------
+VERIFIED WORKING FEEDS (all live-tested 2026-07-09)
+--------------------------------------------------------------------------------
+
+[C] = configured in backend/app/config.py RSS_FEEDS
+
+GEOPOLITICS / WORLD
+[C] BBC World            ~18/day   https://feeds.bbci.co.uk/news/world/rss.xml
+[C] Guardian World       ~15/day   https://www.theguardian.com/world/rss
+[C] War on the Rocks     ~2/day    https://warontherocks.com/feed/
+                                   (analysis/essays, low volume high signal)
+[C] Defense One          ~2/day    https://www.defenseone.com/rss/all/
+    NYT World            ~35/day   https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+    Al Jazeera (all)     ~128/day  https://www.aljazeera.com/xml/rss/all.xml
+                                   (firehose: every section incl. sport)
+    NPR World            ~12/day   https://feeds.npr.org/1004/rss.xml
+    Foreign Policy       ~12/day   https://foreignpolicy.com/feed/  (paywalled site)
+    DW English (all)     ~5/day    https://rss.dw.com/rdf/rss-en-all
+    France 24 EN         ~105/day  https://www.france24.com/en/rss  (high volume)
+    Semafor              ~23/day   https://www.semafor.com/rss.xml  (all sections)
+    UPI Top News         ~145/day  https://rss.upi.com/news/news.rss (very high volume)
+
+UKRAINE / RUSSIA
+[C] Kyiv Independent     ~20/day   https://kyivindependent.com/feed/rss
+[C] Ukrainska Pravda EN  ~67/day   https://www.pravda.com.ua/eng/rss/view_news/
+                                   (high volume, short items)
+
+MIDDLE EAST
+[C] BBC Middle East      ~5/day    https://feeds.bbci.co.uk/news/world/middle_east/rss.xml
+[C] Times of Israel      ~51/day   https://www.timesofisrael.com/feed/
+    Middle East Eye      ~114/day  https://www.middleeasteye.net/rss (very high volume)
+    Jerusalem Post       ~3/day    https://www.jpost.com/rss/rssfeedsfrontpage.aspx
+                                   (CAUTION: future-dated timestamps)
+
+MARKETS / BUSINESS
+[C] CNBC Top News        ~25/day   https://www.cnbc.com/id/100003114/device/rss/rss.html
+[C] CNBC Markets         ~15/day   https://www.cnbc.com/id/10000664/device/rss/rss.html
+                                   (both require identified UA — app fixed)
+[C] Financial Times      ~15/day   https://www.ft.com/rss/home (headlines; site paywalled)
+[C] Economist Finance    ~1/day    https://www.economist.com/finance-and-economics/rss.xml
+                                   (weekly cadence, deep window)
+    MarketWatch Top      ~100/day  https://feeds.content.dowjones.io/public/rss/mw_topstories
+    Yahoo Finance        high      https://finance.yahoo.com/news/rssindex
+                                   (rate-limits aggressively; needs identified UA)
+    Investing.com News   ?/day     https://www.investing.com/rss/news.rss (10-entry window)
+    Seeking Alpha        ?/day     https://seekingalpha.com/market_currents.xml (7-entry window)
+
+TECH
+[C] Ars Technica         ~12/day   https://feeds.arstechnica.com/arstechnica/index
+[C] The Verge            ~15/day   https://www.theverge.com/rss/index.xml
+[C] MIT Tech Review      ~3/day    https://www.technologyreview.com/feed/
+    TechCrunch           ~23/day   https://techcrunch.com/feed/
+    Hacker News          ~30/day   https://news.ycombinator.com/rss
+                                   (links to external sites, not articles; titles only)
+    Wired                ~36/day   https://www.wired.com/feed/rss
+
+DOMESTIC US
+[C] Politico             ~11/day   https://rss.politico.com/politics-news.xml
+[C] NPR Politics         ~14/day   https://feeds.npr.org/1014/rss.xml
+[C] Axios                ~10/day   https://api.axios.com/feed/
+[C] BBC US & Canada      ~9/day    https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml
+    NYT US               ~36/day   https://rss.nytimes.com/services/xml/rss/nyt/US.xml
+    The Hill             ~96/day   https://thehill.com/feed/ (very high volume)
+    NPR News (main)      ~27/day   https://feeds.npr.org/1001/rss.xml
+    PBS NewsHour         ~27/day   https://www.pbs.org/newshour/feeds/rss/headlines
+    NBC News             ~5/day    https://feeds.nbcnews.com/nbcnews/public/news
+    CBS News             ?/day     https://www.cbsnews.com/latest/rss/main (30-entry window)
+
+--------------------------------------------------------------------------------
+DEAD / BLOCKED / REJECTED
+--------------------------------------------------------------------------------
+
+AP (apnews.com)             discontinued; 401/empty. Third-party mirrors only.
+Reuters                     discontinued; 401.
+Bloomberg                   no public RSS.
+WSJ World / WSJ Markets     ZOMBIE — parses but newest entry ~18 months old.
+ISW (understandingwar.org)  403 hard block, even with browser UA.
+Meduza English              /rss/en discontinued; rss2/all is Russian-only.
+kyivindependent.com/rss/    404 — feed moved to /feed/rss.
+Yahoo Finance (default UA)  429 without identified UA (works with the app's UA).
+
+--------------------------------------------------------------------------------
+WHAT'S CONFIGURED AND WHY
+--------------------------------------------------------------------------------
+
+19 feeds (marked [C] above), roughly 250-300 items/day total, balanced across
+the app's six topics.
+
+Selection criteria:
+- Every topic covered by 2+ independent sources.
+- Favor quality-per-item over raw volume: each ingested item costs a Voyage
+  embedding, each new story a Haiku filter call, each surviving story a
+  Sonnet scoring call. The firehoses (Al Jazeera 128/day, UPI 145/day,
+  MEE 114/day, The Hill 96/day, France 24 105/day, MarketWatch ~100/day) were
+  left out of the default set; add selectively if a topic feels thin.
+- Skipped Hacker News by default: entries are bare external links with no
+  body text, which gives the filter/scorer almost nothing to work with.
+- Overlap is deliberate where perspectives differ (BBC + Guardian world;
+  CNBC + FT + Economist markets; Politico + NPR + Axios for DC).
+
+To add a feed: append {"name": ..., "url": ...} to RSS_FEEDS in
+backend/app/config.py. First poll snapshots the feed (no backfill); items
+flow from the second poll onward.
+
+--------------------------------------------------------------------------------
+SOURCES (web research)
+--------------------------------------------------------------------------------
+
+Feedspot ranked categories (2026):
+  https://rss.feedspot.com/usa_news_rss_feeds/
+  https://rss.feedspot.com/world_news_rss_feeds/
+  https://rss.feedspot.com/best_rss_feeds/
+  https://rss.feedspot.com/financial_news_rss_feeds/
+  https://rss.feedspot.com/stock_market_news_rss_feeds/
+  https://rss.feedspot.com/associated_press_rss_feeds/
+FeedWind/Mikle directory:
+  https://feed.mikle.com/support/top-trending-rss-feeds-in-2026/
+  https://feed.mikle.com/support/rss-feed-sources-online-news-sites/
+elink roundup:
+  https://blog.elink.io/top-20-popular-rss-feeds/
+Publisher feed pages:
+  https://www.cnbc.com/rss-feeds/
+  https://www.investing.com/webmaster-tools/rss
+AP RSS status:
+  https://github.com/rererecursive/associated-press-rss
+  https://lemmy.world/post/200848
+Meduza platform listing:
+  https://meduza.io/en/feature/2022/07/06/where-do-i-find-all-of-meduza-s-content
+
+Primary evidence: live HTTP tests on 2026-07-09 via the app's own fetch path
+(see METHODOLOGY). Where a directory claim conflicted with the live test, the
+live test wins.
+================================================================================

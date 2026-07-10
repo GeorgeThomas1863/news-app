@@ -159,7 +159,7 @@ async def test_pipeline_status_empty(client):
     response = await client.get("/api/pipeline/status")
 
     assert response.status_code == 200
-    assert response.json() == {"running": False, "run": None}
+    assert response.json() == {"running": False, "paused": False, "run": None}
 
 
 async def test_pipeline_status_returns_latest_run(client, test_db):
@@ -211,3 +211,26 @@ async def test_pipeline_run_conflict_when_already_running(client, monkeypatch):
     response = await client.post("/api/pipeline/run")
 
     assert response.status_code == 409
+
+
+async def test_pipeline_stop_and_resume_toggle_paused(client):
+    body = (await client.post("/api/pipeline/stop")).json()
+    assert body["success"] is True
+    assert (await client.get("/api/pipeline/status")).json()["paused"] is True
+
+    body = (await client.post("/api/pipeline/resume")).json()
+    assert body["success"] is True
+    assert (await client.get("/api/pipeline/status")).json()["paused"] is False
+
+
+async def test_pipeline_stop_is_idempotent(client):
+    await client.post("/api/pipeline/stop")
+    body = (await client.post("/api/pipeline/stop")).json()
+    assert body["success"] is True
+    assert (await client.get("/api/pipeline/status")).json()["paused"] is True
+
+
+async def test_pipeline_stop_resume_require_auth(client):
+    client.cookies.clear()
+    assert (await client.post("/api/pipeline/stop")).status_code == 401
+    assert (await client.post("/api/pipeline/resume")).status_code == 401

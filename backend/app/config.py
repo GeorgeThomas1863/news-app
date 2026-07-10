@@ -21,7 +21,32 @@ BACKEND_PORT = int(os.environ.get("BACKEND_PORT", "8000"))
 
 # --- sources (moves to UI settings in a later version) ---
 RSS_FEEDS = [
-    # {"name": "Example Feed", "url": "https://example.com/feed"},
+    # all URLs live-verified 2026-07-09 through fetch_feed_text; see rss_info.txt
+    # -- geopolitics / world --
+    {"name": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "Guardian World", "url": "https://www.theguardian.com/world/rss"},
+    {"name": "War on the Rocks", "url": "https://warontherocks.com/feed/"},
+    {"name": "Defense One", "url": "https://www.defenseone.com/rss/all/"},
+    # -- ukraine --
+    {"name": "Kyiv Independent", "url": "https://kyivindependent.com/feed/rss"},
+    {"name": "Ukrainska Pravda", "url": "https://www.pravda.com.ua/eng/rss/view_news/"},
+    # -- middle east --
+    {"name": "BBC Middle East", "url": "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"},
+    {"name": "Times of Israel", "url": "https://www.timesofisrael.com/feed/"},
+    # -- markets --
+    {"name": "CNBC Top News", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"},
+    {"name": "CNBC Markets", "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html"},
+    {"name": "Financial Times", "url": "https://www.ft.com/rss/home"},
+    {"name": "Economist Finance", "url": "https://www.economist.com/finance-and-economics/rss.xml"},
+    # -- tech --
+    {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index"},
+    {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
+    {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/"},
+    # -- domestic us --
+    {"name": "Politico", "url": "https://rss.politico.com/politics-news.xml"},
+    {"name": "NPR Politics", "url": "https://feeds.npr.org/1014/rss.xml"},
+    {"name": "Axios", "url": "https://api.axios.com/feed/"},
+    {"name": "BBC US & Canada", "url": "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"},
 ]
 TELEGRAM_CHANNELS = [
     # "channelusername",

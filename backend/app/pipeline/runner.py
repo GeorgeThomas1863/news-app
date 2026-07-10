@@ -14,10 +14,34 @@ VERDICT_SAMPLE_TEXTS = 3
 
 _lock = asyncio.Lock()
 _background_tasks = set()
+_paused = False
+_stop_requested = False
 
 
 def is_running():
     return _lock.locked()
+
+
+def is_paused():
+    return _paused
+
+
+def pause():
+    """Stop the workflow: scheduler skips its ticks and any in-flight run aborts
+    at its next checkpoint. In-memory only — a restart comes back running."""
+    global _paused, _stop_requested
+    _paused = True
+    if _lock.locked():
+        _stop_requested = True
+        return {"success": True, "message": "pipeline stopped; in-flight run aborting"}
+    return {"success": True, "message": "pipeline stopped"}
+
+
+def resume():
+    global _paused, _stop_requested
+    _paused = False
+    _stop_requested = False
+    return {"success": True, "message": "pipeline resumed"}
 
 
 def start_background_run(tg_client, trigger):
@@ -31,6 +55,7 @@ def start_background_run(tg_client, trigger):
 
 
 async def run_pipeline(tg_client, trigger):
+    global _stop_requested
     if _lock.locked():
         return {"success": False, "message": "pipeline already running"}
 
@@ -56,6 +81,12 @@ async def run_pipeline(tg_client, trigger):
             log.exception("pipeline run failed (trigger=%s)", trigger)
             errors.append({"stage": "run", "message": str(error)})
             status = "error"
+
+        if _stop_requested:
+            _stop_requested = False
+            if status == "success":
+                status = "stopped"
+            log.info("pipeline run aborted by stop (trigger=%s)", trigger)
 
         await finish_run(run_id, status, counts, errors)
         return {"success": status == "success", "message": status, "run_id": str(run_id)}
@@ -91,6 +122,8 @@ async def finish_run(run_id, status, counts, errors):
 
 async def ingest_all(tg_client, counts, errors):
     for channel in config.TELEGRAM_CHANNELS:
+        if _stop_requested:
+            return
         try:
             items = await ingest_telegram.fetch_new_channel_messages(tg_client, channel)
             await store_items(items, counts)
@@ -102,6 +135,8 @@ async def ingest_all(tg_client, counts, errors):
             errors.append({"stage": "ingest", "source": channel, "message": str(error)})
 
     for feed in config.RSS_FEEDS:
+        if _stop_requested:
+            return
         try:
             items = await ingest_rss.fetch_new_feed_entries(feed["name"], feed["url"])
             await store_items(items, counts)
@@ -130,6 +165,8 @@ async def store_items(items, counts):
 
 
 async def embed_pending(counts, errors):
+    if _stop_requested:
+        return
     docs = [doc async for doc in db.raw.find({"embedding": None})]
     if not docs:
         return
@@ -155,6 +192,8 @@ async def group_new_items(counts, errors):
 
     candidates = await load_active_candidates()
     for item in new_items:
+        if _stop_requested:
+            return
         try:
             await place_item(item, candidates, counts)
         except Exception as error:
@@ -267,6 +306,8 @@ async def create_story_for_item(item, candidates, counts):
 async def process_dirty_stories(counts, errors):
     dirty = [s async for s in db.stories.find({"dirty": True})]
     for story in dirty:
+        if _stop_requested:
+            return
         try:
             await process_story(story, counts)
         except Exception as error:

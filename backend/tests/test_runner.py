@@ -1,8 +1,11 @@
+import asyncio
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
-from app import config
+from app import config, main
 from app.pipeline import embed, ingest_telegram, runner, score
 from app.pipeline import filter as importance_filter
 from tests.test_ingest_telegram import FakeTelegramClient, make_message
@@ -176,6 +179,108 @@ async def test_dirty_scored_story_is_rescored_without_filter(test_db, pipeline_e
     assert story["headline"] == "Updated"
     assert story["dirty"] is False
     assert story["status"] == "scored"
+
+
+def test_pause_and_resume_toggle_state():
+    assert runner.is_paused() is False
+
+    result = runner.pause()
+    assert result["success"] is True
+    assert runner.is_paused() is True
+
+    result = runner.resume()
+    assert result["success"] is True
+    assert runner.is_paused() is False
+
+
+async def test_stop_mid_run_finalizes_stopped_with_partial_counts(test_db, pipeline_env, monkeypatch):
+    vectors = iter([[1.0, 0.0], [0.0, 1.0]])
+
+    async def fake_embed(texts):
+        return [next(vectors) for _ in texts]
+
+    scored = []
+
+    async def stopping_score(items):
+        runner.pause()
+        scored.append(items)
+        return {"score": 50, "topic": "Tech", "headline": "H", "summary": "S"}
+
+    monkeypatch.setattr(embed, "embed_texts", fake_embed)
+    monkeypatch.setattr(score, "score_story", stopping_score)
+    await ingest_telegram.set_bookmark("chan", 100)
+    tg_client = FakeTelegramClient(
+        new_messages=[
+            make_message(101, "first completely unrelated event"),
+            make_message(102, "second totally different event"),
+        ]
+    )
+
+    result = await runner.run_pipeline(tg_client, trigger="manual")
+
+    assert result["message"] == "stopped"
+    assert len(scored) == 1
+    run = await test_db.pipeline_runs.find_one({})
+    assert run["status"] == "stopped"
+    assert run["finished_at"] is not None
+    assert run["counts"]["ingested"] == 2
+    assert run["counts"]["scored"] == 1
+    assert runner.is_paused() is True
+    assert runner._stop_requested is False
+
+
+async def test_stop_between_sources_skips_remaining(test_db, pipeline_env, monkeypatch):
+    monkeypatch.setattr(config, "TELEGRAM_CHANNELS", ["a", "b"])
+    fetched = []
+
+    async def stopping_fetch(tg_client, channel):
+        fetched.append(channel)
+        runner.pause()
+        return []
+
+    monkeypatch.setattr(ingest_telegram, "fetch_new_channel_messages", stopping_fetch)
+
+    result = await runner.run_pipeline(FakeTelegramClient(), trigger="schedule")
+
+    assert result["message"] == "stopped"
+    assert fetched == ["a"]
+
+
+async def test_scheduler_skips_run_while_paused(monkeypatch):
+    calls = []
+
+    async def fake_run(tg_client, trigger):
+        calls.append(trigger)
+
+    monkeypatch.setattr(runner, "run_pipeline", fake_run)
+    runner.pause()
+    app = SimpleNamespace(state=SimpleNamespace(tg_client=None))
+
+    task = asyncio.create_task(main.run_pipeline_on_schedule(app))
+    await asyncio.sleep(0)
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+    assert calls == []
+
+
+async def test_scheduler_runs_when_not_paused(monkeypatch):
+    calls = []
+
+    async def fake_run(tg_client, trigger):
+        calls.append(trigger)
+
+    monkeypatch.setattr(runner, "run_pipeline", fake_run)
+    app = SimpleNamespace(state=SimpleNamespace(tg_client=None))
+
+    task = asyncio.create_task(main.run_pipeline_on_schedule(app))
+    await asyncio.sleep(0)
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+    assert calls == ["schedule"]
 
 
 async def test_failed_scoring_leaves_story_dirty_for_next_cycle(test_db, pipeline_env, monkeypatch):
