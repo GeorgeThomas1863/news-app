@@ -59,6 +59,7 @@ SIM_HIGH = 0.85
 SIM_LOW = 0.70
 ACTIVE_WINDOW_HOURS = 48
 DECAY_HALF_LIFE_HOURS = 24
+RANKING_WINDOW_HALF_LIVES = 10  # stories older than this many half-lives never outrank fresh ones
 STORIES_PER_TOPIC = 5
 MIN_TEXT_LENGTH = 40
 

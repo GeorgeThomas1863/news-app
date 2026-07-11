@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.139.0",
     "feedparser>=6.0.12",
     "httpx>=0.28.1",
+    "numpy>=2.5.1",
     "pyjwt>=2.13.0",
     "pymongo>=4.17.0",
     "python-dotenv>=1.2.2",

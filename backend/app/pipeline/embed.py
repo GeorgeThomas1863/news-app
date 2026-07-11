@@ -22,8 +22,10 @@ async def embed_texts(texts):
     vectors = []
     for start in range(0, len(texts), BATCH_SIZE):
         chunk = texts[start : start + BATCH_SIZE]
+        # truncation=True is the API default; explicit because we rely on it —
+        # over-length texts are shortened server-side instead of rejected.
         result = await get_client().embed(
-            chunk, model=config.EMBED_MODEL, input_type="document"
+            chunk, model=config.EMBED_MODEL, input_type="document", truncation=True
         )
         vectors.extend(result.embeddings)
     return vectors

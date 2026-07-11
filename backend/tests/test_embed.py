@@ -8,8 +8,10 @@ class FakeVoyageClient:
     def __init__(self):
         self.calls = []
 
-    async def embed(self, texts, model=None, input_type=None):
-        self.calls.append({"texts": texts, "model": model, "input_type": input_type})
+    async def embed(self, texts, model=None, input_type=None, truncation=None):
+        self.calls.append(
+            {"texts": texts, "model": model, "input_type": input_type, "truncation": truncation}
+        )
         return SimpleNamespace(embeddings=[[float(len(t))] for t in texts])
 
 
@@ -22,6 +24,7 @@ async def test_embed_texts_returns_vectors_in_order(monkeypatch):
     assert result == [[2.0], [4.0]]
     assert fake.calls[0]["model"] == config.EMBED_MODEL
     assert fake.calls[0]["input_type"] == "document"
+    assert fake.calls[0]["truncation"] is True
 
 
 async def test_embed_texts_chunks_large_batches(monkeypatch):

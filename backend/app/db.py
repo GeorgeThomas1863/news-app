@@ -43,6 +43,10 @@ async def ensure_indexes():
         await raw.create_index("url")
         await raw.create_index("story_id")
         await stories.create_index([("status", 1), ("latest_item_at", -1)])
+        await stories.create_index(
+            [("status", 1), ("topic", 1), ("latest_item_at", -1)]
+        )  # rank_topic, per dashboard request
+        await stories.create_index("dirty")  # process_dirty_stories, per pipeline run
     except Exception:
         log.exception("failed to ensure mongo indexes")
         raise

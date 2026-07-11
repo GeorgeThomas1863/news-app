@@ -1,10 +1,13 @@
+import os
+
 import pytest
 import pytest_asyncio
 
 from app import db
 from app.pipeline import runner
 
-TEST_MONGO_URI = "mongodb://localhost:27017"
+# Override when localhost:27017 is unavailable or requires auth.
+TEST_MONGO_URI = os.environ.get("TEST_MONGO_URI", "mongodb://localhost:27017")
 TEST_DB_NAME = "news_app_test"
 
 

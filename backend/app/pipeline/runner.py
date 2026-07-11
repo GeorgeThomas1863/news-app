@@ -11,6 +11,7 @@ from app.pipeline import filter as importance_filter
 log = logging.getLogger(__name__)
 
 VERDICT_SAMPLE_TEXTS = 3
+EMBED_CHUNK_SIZE = 64  # one rejected text costs at most this many docs, not the whole backlog
 
 _lock = asyncio.Lock()
 _background_tasks = set()
@@ -69,12 +70,14 @@ async def run_pipeline(tg_client, trigger):
             "stories_updated": 0,
             "filtered_out": 0,
             "scored": 0,
+            "orphans_reaped": 0,
         }
         errors = []
         status = "success"
         try:
             await ingest_all(tg_client, counts, errors)
             await embed_pending(counts, errors)
+            await reap_orphan_stories(counts)
             await group_new_items(counts, errors)
             await process_dirty_stories(counts, errors)
         except Exception as error:
@@ -167,20 +170,38 @@ async def store_items(items, counts):
 async def embed_pending(counts, errors):
     if _stop_requested:
         return
-    docs = [doc async for doc in db.raw.find({"embedding": None})]
-    if not docs:
-        return
+    # An unembedded item is always ungrouped too, and story_id (unlike the
+    # vector field) has an index that serves null equality.
+    docs = [doc async for doc in db.raw.find({"story_id": None, "embedding": None})]
+    for start in range(0, len(docs), EMBED_CHUNK_SIZE):
+        if _stop_requested:
+            return
+        await embed_chunk(docs[start : start + EMBED_CHUNK_SIZE], counts, errors)
 
+
+async def embed_chunk(chunk, counts, errors):
     try:
-        vectors = await embed.embed_texts([doc["text"] for doc in docs])
+        vectors = await embed.embed_texts([doc["text"] for doc in chunk])
     except Exception as error:
-        log.exception("embedding stage failed")
+        log.exception("embedding chunk failed (%d docs)", len(chunk))
         errors.append({"stage": "embed", "message": str(error)})
         return
 
-    for doc, vector in zip(docs, vectors):
+    for doc, vector in zip(chunk, vectors):
         await db.raw.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vector}})
         counts["embedded"] += 1
+
+
+async def reap_orphan_stories(counts):
+    """Delete story shells whose creating run died before linking the item —
+    their item stayed story_id: None, so grouping will redo it this run."""
+    pending = [s async for s in db.stories.find({"status": "pending"})]
+    for story in pending:
+        linked = await db.raw.count_documents({"story_id": story["_id"]})
+        if linked > 0:
+            continue
+        await db.stories.delete_one({"_id": story["_id"]})
+        counts["orphans_reaped"] += 1
 
 
 async def group_new_items(counts, errors):
@@ -218,7 +239,7 @@ async def load_active_candidates():
         candidates.append(
             {
                 "story_id": story["_id"],
-                "embeddings": embeddings,
+                "embedding_matrix": group.build_embedding_matrix(embeddings),
                 "headline": story.get("headline"),
                 "sample_texts": sample_texts,
             }
@@ -227,8 +248,10 @@ async def load_active_candidates():
 
 
 async def place_item(item, candidates, counts):
-    decision = group.decide_placement(
-        item["embedding"], candidates, config.SIM_HIGH, config.SIM_LOW
+    # Pure-CPU similarity over every active embedding — keep it off the event
+    # loop so API requests stay responsive while grouping runs.
+    decision = await asyncio.to_thread(
+        group.decide_placement, item["embedding"], candidates, config.SIM_HIGH, config.SIM_LOW
     )
 
     if decision["action"] == "verify":
@@ -254,7 +277,9 @@ def find_candidate(candidates, story_id):
 
 async def attach_item_to_story(item, story_id, candidates, counts):
     now = datetime.now(timezone.utc)
-    await db.raw.update_one({"_id": item["_id"]}, {"$set": {"story_id": story_id}})
+    # Story bookkeeping first: a crash between the writes then leaves the item
+    # story_id: None, so the next run re-groups it instead of losing it. The
+    # transient item_count over-count is corrected when the story is scored.
     await db.stories.update_one(
         {"_id": story_id},
         {
@@ -264,9 +289,12 @@ async def attach_item_to_story(item, story_id, candidates, counts):
             "$min": {"first_item_at": item["published_at"]},
         },
     )
+    await db.raw.update_one({"_id": item["_id"]}, {"$set": {"story_id": story_id}})
 
     candidate = find_candidate(candidates, story_id)
-    candidate["embeddings"].append(item["embedding"])
+    candidate["embedding_matrix"] = group.append_to_embedding_matrix(
+        candidate["embedding_matrix"], item["embedding"]
+    )
     if len(candidate["sample_texts"]) < VERDICT_SAMPLE_TEXTS:
         candidate["sample_texts"].append(item["text"])
     counts["stories_updated"] += 1
@@ -295,7 +323,7 @@ async def create_story_for_item(item, candidates, counts):
     candidates.append(
         {
             "story_id": result.inserted_id,
-            "embeddings": [item["embedding"]],
+            "embedding_matrix": group.build_embedding_matrix([item["embedding"]]),
             "headline": None,
             "sample_texts": [item["text"]],
         }
@@ -331,7 +359,7 @@ async def process_story(story, counts):
     result = await score.score_story(items)
     if result is None:
         return
-    await mark_story_scored(story["_id"], result)
+    await mark_story_scored(story["_id"], result, len(items))
     counts["scored"] += 1
 
 
@@ -342,7 +370,7 @@ async def mark_story_filtered(story_id):
     )
 
 
-async def mark_story_scored(story_id, result):
+async def mark_story_scored(story_id, result, item_count):
     now = datetime.now(timezone.utc)
     await db.stories.update_one(
         {"_id": story_id},
@@ -354,6 +382,8 @@ async def mark_story_scored(story_id, result):
                 "topic": result["topic"],
                 "headline": result["headline"],
                 "summary": result["summary"],
+                # authoritative recount — attach's $inc can transiently over-count
+                "item_count": item_count,
                 "scored_at": now,
                 "updated_at": now,
             }

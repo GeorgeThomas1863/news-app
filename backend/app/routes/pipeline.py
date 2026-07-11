@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app import db
 from app.auth import require_auth
 from app.pipeline import runner
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -27,7 +31,11 @@ async def resume_pipeline():
 
 @router.get("/pipeline/status")
 async def get_status():
-    docs = [d async for d in db.pipeline_runs.find({}).sort("started_at", -1).limit(1)]
+    try:
+        docs = [d async for d in db.pipeline_runs.find({}).sort("started_at", -1).limit(1)]
+    except Exception:
+        log.exception("get_status: failed to load latest pipeline run")
+        raise HTTPException(status_code=503, detail="Database unavailable")
     run = serialize_run(docs[0]) if docs else None
     return {"running": runner.is_running(), "paused": runner.is_paused(), "run": run}
 

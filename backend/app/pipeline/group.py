@@ -1,22 +1,8 @@
-def cosine_similarity(a, b):
-    if len(a) != len(b):
-        raise ValueError("cosine_similarity: vectors must be the same length")
-
-    dot = 0.0
-    mag_a = 0.0
-    mag_b = 0.0
-    for x, y in zip(a, b):
-        dot += x * y
-        mag_a += x * x
-        mag_b += y * y
-
-    if mag_a == 0.0 or mag_b == 0.0:
-        raise ValueError("cosine_similarity: vectors must not be zero-length")
-
-    return dot / ((mag_a**0.5) * (mag_b**0.5))
+import numpy as np
 
 
 def decide_placement(embedding, candidates, sim_high, sim_low):
+    """Pure CPU — the runner calls this off the event loop via asyncio.to_thread."""
     best = find_best_candidate(embedding, candidates)
     if best is None:
         return {"action": "new"}
@@ -31,10 +17,23 @@ def find_best_candidate(embedding, candidates):
     if not candidates:
         return None
 
+    query = build_embedding_matrix([embedding])[0]
     best = None
     for candidate in candidates:
-        for item_embedding in candidate["embeddings"]:
-            similarity = cosine_similarity(embedding, item_embedding)
-            if best is None or similarity > best["similarity"]:
-                best = {"story_id": candidate["story_id"], "similarity": similarity}
+        similarity = float(np.max(candidate["embedding_matrix"] @ query))
+        if best is None or similarity > best["similarity"]:
+            best = {"story_id": candidate["story_id"], "similarity": similarity}
     return best
+
+
+def append_to_embedding_matrix(matrix, embedding):
+    return np.vstack([matrix, build_embedding_matrix([embedding])])
+
+
+def build_embedding_matrix(embeddings):
+    """Row-normalized float matrix, so cosine similarity is a plain dot product."""
+    matrix = np.asarray(embeddings, dtype=np.float64)
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    if np.any(norms == 0.0):
+        raise ValueError("build_embedding_matrix: vectors must not be zero-length")
+    return matrix / norms
