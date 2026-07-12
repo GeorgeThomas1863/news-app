@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getStory } from "../api.js";
+import { getScoreBand } from "../score.js";
 import { formatTimeAgo } from "../time.js";
 
 const StoryDetail = () => {
@@ -36,7 +37,7 @@ const StoryDetail = () => {
       </Link>
       <div className="detail-card">
         <div className="detail-head">
-          <span className="score-badge">{story.score}</span>
+          <span className={`score-badge ${getScoreBand(story.score)}`}>{story.score}</span>
           <span className="detail-topic">{story.topic}</span>
         </div>
         <h1 className="detail-headline">{story.headline}</h1>

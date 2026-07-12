@@ -2,6 +2,12 @@
 /* RESPONSIVE STYLES */
 /* '''''''''''''''''''''''''''''''''''''''' */
 
+@media (max-width: 900px) {
+  .tile-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   #app-header {
     padding: 0.6rem 0.75rem;
@@ -9,34 +15,34 @@
   }
 
   #app-title {
-    font-size: 1.2rem;
+    font-size: 0.95rem;
   }
 
   #header-status {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
 
   .header-btn {
     padding: 0.4rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
 
   #topics-wrapper,
   #detail-page {
-    padding: 0 0.5rem;
+    padding: 0 0.6rem;
     margin-top: 1rem;
   }
 
-  .collapse-header {
-    padding: 0.75rem 1rem;
+  #topics-wrapper {
+    gap: 0.75rem;
   }
 
-  .collapse-title {
-    font-size: 1.2rem;
+  .tile-head {
+    padding: 0.75rem 0.9rem 0.6rem;
   }
 
-  .story-headline {
-    font-size: 1.1rem;
+  .tile-cards {
+    padding: 0.2rem 0.9rem 0.9rem;
   }
 
   .detail-card {
@@ -44,6 +50,6 @@
   }
 
   .detail-headline {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
   }
 }

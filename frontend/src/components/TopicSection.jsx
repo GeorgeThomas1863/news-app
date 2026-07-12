@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 
 import { getTopicStories } from "../api.js";
 import StoryCard from "./StoryCard.jsx";
+import StoryRow from "./StoryRow.jsx";
 
+const COLLAPSED_COUNT = 3;
 const SHOW_MORE_BATCH = 5;
 
 const TopicSection = ({ topic }) => {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [stories, setStories] = useState(topic.stories);
   const [skip, setSkip] = useState(topic.stories.length);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -35,28 +37,60 @@ const TopicSection = ({ topic }) => {
   };
 
   return (
-    <section className="topic-section">
-      <div className="collapse-header" onClick={() => setExpanded(!expanded)}>
-        <span className={expanded ? "collapse-arrow expanded" : "collapse-arrow"} />
-        <span className="collapse-title">
+    <section className={expanded ? "topic-tile open" : "topic-tile"}>
+      <div className="tile-head" onClick={() => setExpanded(!expanded)}>
+        <span className="tile-dot" />
+        <span className="tile-name">
           {topic.topic}
-          <span className="topic-count">{topic.total}</span>
+          <span className="tile-chip">{topic.total}</span>
         </span>
+        <span className="tile-chevron" />
       </div>
-      {expanded && (
-        <div className="collapse-content">
-          {stories.length === 0 && <p className="topic-empty">No stories yet</p>}
-          {stories.map((story) => (
-            <StoryCard key={story.id} story={story} />
-          ))}
-          {hasMore && (
-            <button className="show-more-btn" onClick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Loading…" : "Show more"}
-            </button>
-          )}
-        </div>
+      {expanded ? (
+        <ExpandedStories
+          topic={topic}
+          stories={stories}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
+        />
+      ) : (
+        <CollapsedStories topic={topic} stories={stories} />
       )}
     </section>
+  );
+};
+
+const CollapsedStories = ({ topic, stories }) => {
+  if (stories.length === 0) return <p className="topic-empty">No stories yet</p>;
+
+  const shown = stories.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = topic.total - shown.length;
+  return (
+    <div className="tile-list">
+      {shown.map((story) => (
+        <StoryRow key={story.id} story={story} />
+      ))}
+      {hiddenCount > 0 && <p className="tile-more">+{hiddenCount} more</p>}
+    </div>
+  );
+};
+
+const ExpandedStories = ({ topic, stories, hasMore, loadingMore, onLoadMore }) => {
+  if (stories.length === 0) return <p className="topic-empty">No stories yet</p>;
+
+  const remainingCount = topic.total - stories.length;
+  return (
+    <div className="tile-cards">
+      {stories.map((story) => (
+        <StoryCard key={story.id} story={story} />
+      ))}
+      {hasMore && (
+        <button className="show-more-btn" onClick={onLoadMore} disabled={loadingMore}>
+          {loadingMore ? "Loading…" : `Show more (${remainingCount} more)`}
+        </button>
+      )}
+    </div>
   );
 };
 

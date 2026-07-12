@@ -77,6 +77,7 @@ const Header = ({ onRefreshed, onLogout }) => {
     <header id="app-header">
       <h1 id="app-title">NEWS</h1>
       <div id="header-status">
+        {status && <span className={buildStatusDotClass(status)} />}
         {paused && <span className="paused-indicator">paused</span>}
         {status && status.running && <span className="run-indicator">updating…</span>}
         {!refreshing && lastRun && lastRun.finished_at && (
@@ -96,6 +97,12 @@ const Header = ({ onRefreshed, onLogout }) => {
       </div>
     </header>
   );
+};
+
+const buildStatusDotClass = (status) => {
+  if (status.paused) return "status-dot paused";
+  if (status.running) return "status-dot running";
+  return "status-dot";
 };
 
 export default Header;
