@@ -9,6 +9,7 @@ from telethon.sessions import StringSession
 from app import auth, config, db
 from app.pipeline import runner
 from app.routes import pipeline as pipeline_routes
+from app.routes import sources as sources_routes
 from app.routes import stories as stories_routes
 
 logging.basicConfig(
@@ -22,6 +23,7 @@ log = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     validate_required_env()
     await db.init_db()
+    await db.seed_sources_if_empty(config.RSS_FEEDS, config.TELEGRAM_CHANNELS)
     app.state.tg_client = await connect_telegram()
     scheduler = asyncio.create_task(run_pipeline_on_schedule(app))
 
@@ -57,8 +59,8 @@ def validate_required_env():
 
 
 async def connect_telegram():
-    if not config.TELEGRAM_CHANNELS:
-        log.info("no telegram channels configured; telegram client not started")
+    if not (config.TG_API_ID and config.TG_API_HASH and config.TG_SESSION):
+        log.info("telegram credentials not configured; telegram client not started")
         return None
 
     client = TelegramClient(
@@ -89,6 +91,7 @@ app = FastAPI(title="news-app", lifespan=lifespan)
 app.include_router(auth.router, prefix="/api")
 app.include_router(stories_routes.router, prefix="/api")
 app.include_router(pipeline_routes.router, prefix="/api")
+app.include_router(sources_routes.router, prefix="/api")
 
 
 if __name__ == "__main__":

@@ -38,3 +38,17 @@ export const triggerPipelineRun = () => apiFetch("/api/pipeline/run", { method: 
 export const stopPipeline = () => apiFetch("/api/pipeline/stop", { method: "POST" });
 
 export const resumePipeline = () => apiFetch("/api/pipeline/resume", { method: "POST" });
+
+export const getSources = () => apiFetch(`/api/sources`);
+
+export const addRssSource = (name, url) =>
+  apiFetch(`/api/sources/rss`, { method: "POST", body: JSON.stringify({ name, url }) });
+
+export const addTelegramSource = (channel) =>
+  apiFetch(`/api/sources/telegram`, { method: "POST", body: JSON.stringify({ channel }) });
+
+export const updateSource = (id, fields) =>
+  apiFetch(`/api/sources/${id}`, { method: "PUT", body: JSON.stringify(fields) });
+
+export const deleteSource = (id) =>
+  apiFetch(`/api/sources/${id}`, { method: "DELETE" });

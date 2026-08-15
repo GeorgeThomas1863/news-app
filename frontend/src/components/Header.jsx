@@ -9,11 +9,14 @@ import {
 } from "../api.js";
 import { formatTimeAgo } from "../time.js";
 
+import SourcesModal from "./SourcesModal.jsx";
+
 const POLL_INTERVAL_MS = 5000;
 
 const Header = ({ onRefreshed, onLogout }) => {
   const [status, setStatus] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const pollTimer = useRef(null);
 
   const loadStatus = useCallback(async () => {
@@ -91,10 +94,17 @@ const Header = ({ onRefreshed, onLogout }) => {
         <button className="header-btn header-btn-secondary" onClick={togglePaused}>
           {paused ? "Resume" : "Stop"}
         </button>
+        <button
+          className="header-btn header-btn-secondary"
+          onClick={() => setShowSources(true)}
+        >
+          Sources
+        </button>
         <button className="header-btn header-btn-secondary" onClick={submitLogout}>
           Logout
         </button>
       </div>
+      {showSources && <SourcesModal onClose={() => setShowSources(false)} />}
     </header>
   );
 };

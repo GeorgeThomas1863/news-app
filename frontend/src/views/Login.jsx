@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { login } from "../api.js";
+import flagUrl from "../assets/freedom1.jpg";
 
 const Login = ({ onLogin }) => {
   const [password, setPassword] = useState("");
@@ -25,6 +26,7 @@ const Login = ({ onLogin }) => {
 
   return (
     <div id="auth-page">
+      <img id="auth-background-pic" src={flagUrl} alt="" />
       <form id="auth-form-wrapper" onSubmit={submitPassword}>
         <h1 id="auth-title">NEWS</h1>
         <label id="auth-label" htmlFor="auth-pw">

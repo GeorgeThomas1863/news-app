@@ -13,8 +13,6 @@ from tests.test_ingest_telegram import FakeTelegramClient, make_message
 
 @pytest.fixture
 def pipeline_env(monkeypatch):
-    monkeypatch.setattr(config, "TELEGRAM_CHANNELS", ["chan"])
-    monkeypatch.setattr(config, "RSS_FEEDS", [])
     monkeypatch.setattr(config, "MIN_TEXT_LENGTH", 5)
 
     async def fake_embed(texts):
@@ -32,7 +30,19 @@ def pipeline_env(monkeypatch):
     return monkeypatch
 
 
+async def insert_telegram_sources(test_db, channels):
+    """runner.ingest_all reads channels from db.sources instead of
+    config.TELEGRAM_CHANNELS now; insert matching enabled docs, preserving order."""
+    docs = [
+        {"type": "telegram", "name": channel, "channel": channel, "enabled": True}
+        for channel in channels
+    ]
+    if docs:
+        await test_db.sources.insert_many(docs)
+
+
 async def test_full_cycle_ingests_groups_and_scores(test_db, pipeline_env):
+    await insert_telegram_sources(test_db, ["chan"])
     await ingest_telegram.set_bookmark("chan", 100)
     tg_client = FakeTelegramClient(
         new_messages=[
@@ -85,6 +95,7 @@ async def test_unimportant_story_is_filtered_not_scored(test_db, pipeline_env, m
 
     monkeypatch.setattr(importance_filter, "is_possibly_important", fake_filter)
     monkeypatch.setattr(score, "score_story", exploding_score)
+    await insert_telegram_sources(test_db, ["chan"])
     await ingest_telegram.set_bookmark("chan", 100)
     tg_client = FakeTelegramClient(new_messages=[make_message(101, "boring giveaway spam post")])
 
@@ -100,7 +111,7 @@ async def test_unimportant_story_is_filtered_not_scored(test_db, pipeline_env, m
 
 
 async def test_failing_source_is_isolated_and_recorded(test_db, pipeline_env, monkeypatch):
-    monkeypatch.setattr(config, "TELEGRAM_CHANNELS", ["bad", "good"])
+    await insert_telegram_sources(test_db, ["bad", "good"])
 
     async def fake_fetch(tg_client, channel):
         if channel == "bad":
@@ -139,7 +150,6 @@ async def test_dirty_scored_story_is_rescored_without_filter(test_db, pipeline_e
 
     monkeypatch.setattr(importance_filter, "is_possibly_important", exploding_filter)
     monkeypatch.setattr(score, "score_story", fake_score)
-    monkeypatch.setattr(config, "TELEGRAM_CHANNELS", [])
     now = datetime.now(timezone.utc)
     insert = await test_db.stories.insert_one(
         {
@@ -208,6 +218,7 @@ async def test_stop_mid_run_finalizes_stopped_with_partial_counts(test_db, pipel
 
     monkeypatch.setattr(embed, "embed_texts", fake_embed)
     monkeypatch.setattr(score, "score_story", stopping_score)
+    await insert_telegram_sources(test_db, ["chan"])
     await ingest_telegram.set_bookmark("chan", 100)
     tg_client = FakeTelegramClient(
         new_messages=[
@@ -230,7 +241,7 @@ async def test_stop_mid_run_finalizes_stopped_with_partial_counts(test_db, pipel
 
 
 async def test_stop_between_sources_skips_remaining(test_db, pipeline_env, monkeypatch):
-    monkeypatch.setattr(config, "TELEGRAM_CHANNELS", ["a", "b"])
+    await insert_telegram_sources(test_db, ["a", "b"])
     fetched = []
 
     async def stopping_fetch(tg_client, channel):
@@ -288,6 +299,7 @@ async def test_failed_scoring_leaves_story_dirty_for_next_cycle(test_db, pipelin
         return None
 
     monkeypatch.setattr(score, "score_story", fake_score)
+    await insert_telegram_sources(test_db, ["chan"])
     await ingest_telegram.set_bookmark("chan", 100)
     tg_client = FakeTelegramClient(new_messages=[make_message(101, "important but scoring failed")])
 

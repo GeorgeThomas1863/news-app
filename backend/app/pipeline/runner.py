@@ -124,7 +124,17 @@ async def finish_run(run_id, status, counts, errors):
 
 
 async def ingest_all(tg_client, counts, errors):
-    for channel in config.TELEGRAM_CHANNELS:
+    try:
+        source_docs = await db.sources.find({"enabled": True}).to_list(length=None)
+    except Exception as error:
+        log.exception("loading sources failed")
+        errors.append({"stage": "ingest", "source": "sources-load", "message": str(error)})
+        return
+
+    telegram_channels = [doc["channel"] for doc in source_docs if doc["type"] == "telegram"]
+    rss_feeds = [{"name": doc["name"], "url": doc["url"]} for doc in source_docs if doc["type"] == "rss"]
+
+    for channel in telegram_channels:
         if _stop_requested:
             return
         try:
@@ -137,7 +147,7 @@ async def ingest_all(tg_client, counts, errors):
             log.exception("telegram ingest failed (channel=%s)", channel)
             errors.append({"stage": "ingest", "source": channel, "message": str(error)})
 
-    for feed in config.RSS_FEEDS:
+    for feed in rss_feeds:
         if _stop_requested:
             return
         try:
