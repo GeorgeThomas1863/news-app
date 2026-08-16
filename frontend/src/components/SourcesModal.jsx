@@ -28,13 +28,13 @@ const SourcesModal = ({ onClose }) => {
   }, [loadSources]);
 
   // Shared by every mutating action so success/failure handling — clearing or
-  // showing the one error slot, exiting edit mode, reloading the list — stays
-  // in one place.
+  // showing the one error slot, reloading the list — stays in one place.
+  // Edit mode is cleared only by saveEdit: a toggle, add, or delete on another
+  // row must not discard an open edit form.
   const runMutation = async (action) => {
     try {
       await action();
       setError(null);
-      setEditingId(null);
       await loadSources();
       return true;
     } catch (err) {
@@ -51,7 +51,11 @@ const SourcesModal = ({ onClose }) => {
   const toggleEnabled = (source) =>
     runMutation(() => updateSource(source.id, { enabled: !source.enabled }));
 
-  const saveEdit = (id, fields) => runMutation(() => updateSource(id, fields));
+  const saveEdit = async (id, fields) => {
+    const success = await runMutation(() => updateSource(id, fields));
+    if (success) setEditingId(null);
+    return success;
+  };
 
   const addRss = (name, url) => runMutation(() => addRssSource(name, url));
 
