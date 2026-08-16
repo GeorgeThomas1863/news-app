@@ -77,7 +77,7 @@ async def rank_topic(topic, now):
 
 
 async def find_scored_story(oid):
-    # Only scored stories are ever returned to the frontend (SPEC.md) —
+    # Only scored stories are ever returned to the frontend —
     # pending/filtered ones 404 just like unknown ids.
     try:
         return await db.stories.find_one({"_id": oid, "status": "scored"})

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains a FastAPI API and React application. Backend code lives in `backend/app/`; endpoints are in `app/routes/`, pipeline stages in `app/pipeline/`, and tests in `backend/tests/`. In `frontend/`, place pages in `src/views/`, reusable UI in `src/components/`, and styles in `src/css/`. Root files include `docker-compose.yml`, environment templates, and the system design (`SPEC.md`).
+This repository contains a FastAPI API and React application. Backend code lives in `backend/app/`; endpoints are in `app/routes/`, pipeline stages in `app/pipeline/`, and tests in `backend/tests/`. In `frontend/`, place pages in `src/views/`, reusable UI in `src/components/`, and styles in `src/css/`. Root files include `docker-compose.yml` and the project docs (`README.md`, `CLAUDE.md`).
 
 ## HARD RULES
 
@@ -25,7 +25,7 @@ Follow the existing style: four-space indentation and `snake_case` for Python; t
 
 ## Testing Guidelines
 
-Pytest and `pytest-asyncio` are configured in `backend/pyproject.toml`; async tests run automatically. Add tests under `backend/tests/test_*.py`, using fixtures from `conftest.py`. Cover success, edge, and failure paths. Tests require MongoDB on `localhost:27017`. There is no frontend test runner; run `npm run build` and manually verify affected views.
+Pytest and `pytest-asyncio` are configured in `backend/pyproject.toml`; async tests run automatically. Add tests under `backend/tests/test_*.py`, using fixtures from `conftest.py`. Cover success, edge, and failure paths. Tests require MongoDB on `localhost:27017`. Frontend tests run with vitest (`npm run test` in `frontend/`); for visual changes also run `npm run build` and manually verify affected views.
 
 ## Commit & Pull Request Guidelines
 
@@ -33,4 +33,4 @@ History uses short, lowercase summaries, but is not yet consistent enough to def
 
 ## Security & Configuration
 
-Copy `env.example` to `.env` and keep credentials out of version control. Configure sources and thresholds in `backend/app/config.py`; update scoring behavior in `backend/app/prompts.py`. Use `SECURE_COOKIES=true` behind HTTPS in production.
+Create `.env` at the repo root (variable names in `README.md`) and keep credentials out of version control. Configure sources and thresholds in `backend/app/config.py`; update scoring behavior in `backend/app/prompts.py`. Use `SECURE_COOKIES=true` behind HTTPS in production.
