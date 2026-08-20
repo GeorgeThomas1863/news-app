@@ -11,8 +11,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: Number(env.FRONTEND_PORT) || 5173,
+      // strictPort: a silent bump lands on the backend's port and breaks the proxy;
+      // 127.0.0.1: uvicorn binds IPv4 only, and localhost can resolve to ::1 first
+      strictPort: true,
       proxy: {
-        "/api": `http://localhost:${env.BACKEND_PORT || 8000}`,
+        "/api": `http://127.0.0.1:${env.BACKEND_PORT || 8000}`,
       },
     },
   };

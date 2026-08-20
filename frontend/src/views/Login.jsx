@@ -3,6 +3,37 @@ import { useState } from "react";
 import { login } from "../api.js";
 import flagUrl from "../assets/freedom1.jpg";
 
+const EYE_CLOSED_ICON = (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+    <path d="M2 2l20 20" />
+  </svg>
+);
+
+const EYE_OPEN_ICON = (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
 const Login = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,9 +59,8 @@ const Login = ({ onLogin }) => {
     <div id="auth-page">
       <img id="auth-background-pic" src={flagUrl} alt="" />
       <form id="auth-form-wrapper" onSubmit={submitPassword}>
-        <h1 id="auth-title">NEWS</h1>
         <label id="auth-label" htmlFor="auth-pw">
-          Password
+          Welcome to the News Machine
         </label>
         <div className="password-input-wrapper">
           <input
@@ -39,20 +69,20 @@ const Login = ({ onLogin }) => {
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter password"
             autoFocus
           />
           <button
             type="button"
             className="password-toggle-btn"
+            aria-label={showPassword ? "Hide password" : "Show password"}
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? "hide" : "show"}
+            {showPassword ? EYE_OPEN_ICON : EYE_CLOSED_ICON}
           </button>
         </div>
         {error && <p className="auth-error">{error}</p>}
         <button className="btn-submit" type="submit" disabled={submitting}>
-          {submitting ? "Checking…" : "Enter"}
+          {submitting ? "Checking…" : "Submit"}
         </button>
       </form>
     </div>

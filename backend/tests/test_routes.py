@@ -159,7 +159,7 @@ async def test_pipeline_status_empty(client):
     response = await client.get("/api/pipeline/status")
 
     assert response.status_code == 200
-    assert response.json() == {"running": False, "paused": False, "run": None}
+    assert response.json() == {"running": False, "paused": True, "run": None}
 
 
 async def test_pipeline_status_returns_latest_run(client, test_db):

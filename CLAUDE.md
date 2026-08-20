@@ -60,7 +60,8 @@ Fixtures: `test_db` drops `news_app_test` before and after each test;
   `status: "scored"` stories are returned; others 404.
 - **Module-level state**: `db.py` global collection handles (bound by `init_db`);
   `runner.py` `_lock` (concurrent run → 409), `_paused`, `_stop_requested`. Pause/stop
-  is in-memory — restarts come back running; stop aborts at the next stage checkpoint.
+  is in-memory and the default is **stopped** — every boot waits for Resume; stop
+  aborts at the next stage checkpoint.
 - **Telegram is optional**: without TG env vars `tg_client` is None → RSS-only, TG
   source endpoints 503. TG vars are required at startup only if
   `config.TELEGRAM_CHANNELS` is non-empty.

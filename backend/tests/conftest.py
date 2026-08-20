@@ -24,7 +24,8 @@ WINDOWS_MONGOD_DIR = r"C:\Program Files\MongoDB\Server"
 def reset_pipeline_flags():
     """Paused/stop state is module-level; never let it leak between tests."""
     yield
-    runner.resume()
+    runner._paused = True
+    runner._stop_requested = False
 
 
 @pytest.fixture(scope="session")

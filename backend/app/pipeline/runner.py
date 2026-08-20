@@ -15,7 +15,7 @@ EMBED_CHUNK_SIZE = 64  # one rejected text costs at most this many docs, not the
 
 _lock = asyncio.Lock()
 _background_tasks = set()
-_paused = False
+_paused = True  # scraping is opt-in: every boot starts stopped until Resume
 _stop_requested = False
 
 
@@ -29,7 +29,8 @@ def is_paused():
 
 def pause():
     """Stop the workflow: scheduler skips its ticks and any in-flight run aborts
-    at its next checkpoint. In-memory only — a restart comes back running."""
+    at its next checkpoint. In-memory only, and the module default is stopped,
+    so a restart also boots stopped."""
     global _paused, _stop_requested
     _paused = True
     if _lock.locked():

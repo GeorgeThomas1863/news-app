@@ -132,18 +132,10 @@ button {
   gap: 0.75rem;
 }
 
-#auth-title {
-  text-align: center;
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  color: var(--accent);
-  margin-bottom: 1rem;
-}
-
 #auth-label {
   margin-left: 0.2rem;
-  font-size: 1rem;
+  margin-bottom: 0.2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--ink);
 }
@@ -182,13 +174,16 @@ button {
   background: transparent;
   padding: 4px;
   color: #718096;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .password-toggle-btn:hover {
   color: #374151;
+}
+
+.password-toggle-btn svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .auth-error {
@@ -223,10 +218,22 @@ button {
 /* HEADER */
 /* -------------------------------------------------- */
 
-#app-header {
+#header-wrap {
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+#stopped-banner {
+  padding: 0.6rem 1.5rem;
+  background: #fdecea;
+  color: #8a1c13;
+  border-bottom: 1px solid #f2b8b5;
+  text-align: center;
+  font-weight: 700;
+}
+
+#app-header {
   display: flex;
   align-items: center;
   gap: 1rem;

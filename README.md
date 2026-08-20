@@ -63,3 +63,32 @@ the compose network.
 
 Alerts · Twitter/X and paid/account-login sources · a volume term in the ranking
 formula · multi-user accounts
+
+## How it works
+
+### What happens on launch
+
+One process runs everything — the API plus a 15-minute pipeline loop — and the
+pipeline boots **stopped**. Startup order (`app/main.py` lifespan): validate required
+env vars (crash fast if any are missing) → connect Mongo and seed the `sources`
+collection only while it is empty → connect Telegram if configured, otherwise
+RSS-only → serve the API on `BACKEND_PORT` while the scheduler sleeps until Resume is
+pressed in the UI. The Refresh button still forces a one-off run while stopped.
+
+### Scraping / grading workflow
+
+Every 15 minutes (once resumed), six stages turn feeds into ranked stories:
+ingest → dedupe → embed → group → filter → score.
+
+1. **Ingest** — pull enabled RSS feeds and Telegram channels from the `sources` collection.
+2. **Clean/dedupe** — write items into `raw`; duplicates are dropped by unique index.
+3. **Embed** — Voyage (`voyage-4-lite`) embeds each new item.
+4. **Group** — an item joins an active story at ≥0.85 cosine similarity; between
+   0.70–0.85 Haiku answers "same story?"; below that, a new story is created.
+5. **Filter** — Haiku drops unimportant stories.
+6. **Score** — Sonnet scores survivors 0–100 and writes headline, summary, and topic.
+
+Any LLM failure leaves the story `dirty: true` and it retries next cycle — nothing
+raises. Ranking happens at read time only:
+`score * 0.5 ** (hours_since_latest_item / 24)`, top five per topic; only
+`status: "scored"` stories are shown.

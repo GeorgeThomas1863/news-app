@@ -1,6 +1,9 @@
 import asyncio
+import subprocess
+import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -191,16 +194,26 @@ async def test_dirty_scored_story_is_rescored_without_filter(test_db, pipeline_e
     assert story["status"] == "scored"
 
 
+def test_boots_paused_by_default():
+    """Fresh-interpreter import: the autouse reset fixture forces _paused = True
+    after every test, so an in-process assert can't catch a reverted default."""
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.pipeline import runner; print(runner.is_paused())"],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+    assert result.stdout.strip() == "True", result.stderr
+
+
 def test_pause_and_resume_toggle_state():
+    result = runner.resume()
+    assert result["success"] is True
     assert runner.is_paused() is False
 
     result = runner.pause()
     assert result["success"] is True
     assert runner.is_paused() is True
-
-    result = runner.resume()
-    assert result["success"] is True
-    assert runner.is_paused() is False
 
 
 async def test_stop_mid_run_finalizes_stopped_with_partial_counts(test_db, pipeline_env, monkeypatch):
@@ -283,6 +296,7 @@ async def test_scheduler_runs_when_not_paused(monkeypatch):
         calls.append(trigger)
 
     monkeypatch.setattr(runner, "run_pipeline", fake_run)
+    runner.resume()
     app = SimpleNamespace(state=SimpleNamespace(tg_client=None))
 
     task = asyncio.create_task(main.run_pipeline_on_schedule(app))
