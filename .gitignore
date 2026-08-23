@@ -15,14 +15,27 @@ frontend/dist/
 docs/
 todo.txt
 
-# Env
-.env
-.env.local
-.env.development
-.env.production
-.env.test
-.env.example
+# Env — .env* catches variants (.env.staging, .env.bak); *.env catches foo.env
+.env*
+*.env
 env.example
+
+# Telethon file sessions (contain auth keys) — app uses StringSession, cheap insurance
+*.session
+*.session-journal
+
+# Logs / coverage / tool caches
+*.log
+npm-debug.log*
+.coverage
+htmlcov/
+coverage/
+.ruff_cache/
+.mypy_cache/
+
+# Mongo dumps
+dump/
+*.bson
 
 # Claude working files
 .claude/.tmp/
@@ -32,6 +45,7 @@ env.example
 
 # Editor
 .vscode/
+.idea/
 
 # OS
 Thumbs.db
