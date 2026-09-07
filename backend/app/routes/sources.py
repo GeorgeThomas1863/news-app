@@ -92,10 +92,50 @@ async def build_sources_payload():
         log.exception("build_sources_payload: failed to load sources")
         raise HTTPException(status_code=503, detail="Database unavailable")
 
+    item_counts = await load_item_counts()
+    poll_states = await load_poll_states()
+
     payload = {"rss": [], "telegram": []}
     for doc in docs:
-        payload[doc["type"]].append(serialize_source(doc))
+        key = (doc["type"], doc["name"])
+        health = {
+            "last_polled_at": poll_states.get(key),
+            "item_count": item_counts.get(key, 0),
+        }
+        payload[doc["type"]].append(serialize_source(doc, health))
     return payload
+
+
+async def load_item_counts():
+    """Count `raw` docs per (source_type, source_name) in one grouped aggregate."""
+    try:
+        pipeline = [
+            {"$group": {"_id": {"type": "$source_type", "name": "$source_name"}, "count": {"$sum": 1}}}
+        ]
+        cursor = await db.raw.aggregate(pipeline)
+        rows = [row async for row in cursor]
+    except Exception:
+        log.exception("load_item_counts: failed to aggregate raw item counts")
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    return {(row["_id"]["type"], row["_id"]["name"]): row["count"] for row in rows}
+
+
+async def load_poll_states():
+    """Load last_polled_at per (source_type, source_name) in one find."""
+    try:
+        docs = [doc async for doc in db.source_state.find({})]
+    except Exception:
+        log.exception("load_poll_states: failed to load source_state")
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    states = {}
+    for doc in docs:
+        last_polled_at = doc.get("last_polled_at")
+        states[(doc["source_type"], doc["source_name"])] = (
+            last_polled_at.isoformat() if last_polled_at is not None else None
+        )
+    return states
 
 
 async def verify_rss_feed(url):
@@ -204,10 +244,12 @@ async def remove_source(oid):
         raise HTTPException(status_code=503, detail="Database unavailable")
 
 
-def serialize_source(doc):
+def serialize_source(doc, health):
     out = {"id": str(doc["_id"]), "name": doc["name"], "enabled": doc["enabled"]}
     if doc["type"] == "rss":
         out["url"] = doc["url"]
     else:
         out["channel"] = doc["channel"]
+    out["last_polled_at"] = health["last_polled_at"]
+    out["item_count"] = health["item_count"]
     return out

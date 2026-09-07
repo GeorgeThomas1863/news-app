@@ -7,6 +7,7 @@ import {
   getSources,
   updateSource,
 } from "../api.js";
+import { formatTimeAgo } from "../time.js";
 
 const SourcesModal = ({ onClose }) => {
   const [sources, setSources] = useState({ rss: [], telegram: [] });
@@ -137,6 +138,10 @@ const SourceRow = ({
     <div className="source-row">
       <span className="source-row-name">{source.name}</span>
       <span className="source-row-detail">{detail}</span>
+      <span className="source-row-polled" title={source.last_polled_at || "never polled"}>
+        {formatPolledLabel(source)}
+      </span>
+      <span className="source-row-count">{formatCountLabel(source)}</span>
       <div className="source-row-actions">
         <input
           type="checkbox"
@@ -255,6 +260,16 @@ const SourceAddForm = ({ type, onAddRss, onAddTelegram }) => {
       </button>
     </form>
   );
+};
+
+// Old fixtures/mocks may omit the health fields entirely, so both labels
+// treat missing values the same as "never polled" / zero items.
+const formatPolledLabel = (source) =>
+  source.last_polled_at ? `polled ${formatTimeAgo(source.last_polled_at)}` : "never polled";
+
+const formatCountLabel = (source) => {
+  const count = source.item_count ?? 0;
+  return `${count} item${count === 1 ? "" : "s"}`;
 };
 
 export default SourcesModal;

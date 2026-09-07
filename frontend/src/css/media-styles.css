@@ -52,4 +52,12 @@
   .detail-headline {
     font-size: 1.35rem;
   }
+
+  .source-row-polled {
+    display: none;
+  }
+
+  .source-row-count {
+    min-width: 3.5rem;
+  }
 }

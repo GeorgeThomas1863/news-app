@@ -17,12 +17,30 @@ vi.mock("../api.js", () => ({
   deleteSource: vi.fn(),
 }));
 
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60000).toISOString();
+
 const sources = {
   rss: [
-    { id: "r1", name: "Reuters", url: "https://reuters.com/rss", enabled: true },
-    { id: "r2", name: "AP", url: "https://ap.org/rss", enabled: false },
+    {
+      id: "r1",
+      name: "Reuters",
+      url: "https://reuters.com/rss",
+      enabled: true,
+      last_polled_at: fiveMinutesAgo,
+      item_count: 126,
+    },
+    {
+      id: "r2",
+      name: "AP",
+      url: "https://ap.org/rss",
+      enabled: false,
+      last_polled_at: null,
+      item_count: 0,
+    },
   ],
-  telegram: [{ id: "t1", name: "Intel Slava", channel: "intelslava", enabled: true }],
+  telegram: [
+    { id: "t1", name: "Intel Slava", channel: "intelslava", enabled: true, item_count: 1 },
+  ],
 };
 
 async function renderModal(overrides = {}) {
@@ -60,6 +78,28 @@ describe("SourcesModal", () => {
 
     expect(screen.getByText("intelslava")).toBeInTheDocument();
     expect(screen.queryByText("Reuters")).not.toBeInTheDocument();
+  });
+
+  test("shows the poll time and item count for a recently polled source", async () => {
+    await renderModal();
+
+    expect(screen.getByText("126 items")).toBeInTheDocument();
+    expect(screen.getByText(/polled \d+m ago/)).toBeInTheDocument();
+  });
+
+  test("shows never-polled and zero-item labels when health fields are null", async () => {
+    await renderModal();
+
+    expect(screen.getByText("never polled")).toBeInTheDocument();
+    expect(screen.getByText("0 items")).toBeInTheDocument();
+  });
+
+  test("shows a singular item label when item_count is 1", async () => {
+    await renderModal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Telegram Channels" }));
+
+    expect(screen.getByText("1 item")).toBeInTheDocument();
   });
 
   test("adding an RSS source calls the API, clears the form, and reloads", async () => {

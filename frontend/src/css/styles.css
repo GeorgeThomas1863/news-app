@@ -756,6 +756,20 @@ button {
   font-size: 0.85rem;
 }
 
+.source-row-polled {
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 0.85rem;
+  min-width: 6.5rem;
+}
+
+.source-row-count {
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 0.85rem;
+  min-width: 4.5rem;
+}
+
 .source-row-actions {
   display: flex;
   align-items: center;

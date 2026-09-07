@@ -76,11 +76,78 @@ async def test_get_sources_groups_by_type(client, test_db):
     assert response.status_code == 200
     body = response.json()
     assert body["rss"] == [
-        {"id": str(rss_id), "name": "BBC World", "url": "https://bbc.example.com/rss", "enabled": True}
+        {
+            "id": str(rss_id),
+            "name": "BBC World",
+            "url": "https://bbc.example.com/rss",
+            "enabled": True,
+            "last_polled_at": None,
+            "item_count": 0,
+        }
     ]
     assert body["telegram"] == [
-        {"id": str(tg_id), "name": "chan1", "channel": "chan1", "enabled": True}
+        {
+            "id": str(tg_id),
+            "name": "chan1",
+            "channel": "chan1",
+            "enabled": True,
+            "last_polled_at": None,
+            "item_count": 0,
+        }
     ]
+
+
+async def test_get_sources_includes_health_fields(client, test_db):
+    await insert_source(test_db, "rss", "BBC World", url="https://bbc.example.com/rss")
+    await test_db.source_state.insert_one(
+        {"source_type": "rss", "source_name": "BBC World", "last_polled_at": datetime.now(timezone.utc)}
+    )
+    await insert_raw_items(test_db, "rss", "BBC World", count=3)
+    # Mongo truncates datetimes to millisecond precision, so read back the stored
+    # value rather than comparing against the microsecond-precision Python one.
+    state_doc = await test_db.source_state.find_one({"source_name": "BBC World"})
+
+    response = await client.get("/api/sources")
+
+    assert response.status_code == 200
+    source = response.json()["rss"][0]
+    assert source["last_polled_at"] == state_doc["last_polled_at"].isoformat()
+    assert source["item_count"] == 3
+
+
+async def test_get_sources_no_state_or_items_returns_null_and_zero(client, test_db):
+    await insert_source(test_db, "telegram", "chan1", channel="chan1")
+
+    response = await client.get("/api/sources")
+
+    assert response.status_code == 200
+    source = response.json()["telegram"][0]
+    assert source["last_polled_at"] is None
+    assert source["item_count"] == 0
+
+
+async def test_get_sources_health_is_scoped_by_type(client, test_db):
+    await insert_source(test_db, "rss", "SameName", url="https://example.com/samename")
+    await insert_source(test_db, "telegram", "SameName", channel="SameName")
+    await test_db.source_state.insert_one(
+        {"source_type": "rss", "source_name": "SameName", "last_polled_at": datetime.now(timezone.utc)}
+    )
+    await insert_raw_items(test_db, "rss", "SameName", count=5)
+    await insert_raw_items(test_db, "telegram", "SameName", count=2)
+    # Mongo truncates datetimes to millisecond precision, so read back the stored
+    # value rather than comparing against the microsecond-precision Python one.
+    rss_state_doc = await test_db.source_state.find_one({"source_type": "rss", "source_name": "SameName"})
+
+    response = await client.get("/api/sources")
+
+    assert response.status_code == 200
+    body = response.json()
+    rss_source = body["rss"][0]
+    tg_source = body["telegram"][0]
+    assert rss_source["last_polled_at"] == rss_state_doc["last_polled_at"].isoformat()
+    assert rss_source["item_count"] == 5
+    assert tg_source["last_polled_at"] is None
+    assert tg_source["item_count"] == 2
 
 
 async def test_post_rss_with_valid_feed_creates_source(client, test_db, monkeypatch):
@@ -274,6 +341,29 @@ async def insert_source(test_db, type_, name, enabled=True, url=None, channel=No
         }
     )
     return result.inserted_id
+
+
+async def insert_raw_items(test_db, source_type, source_name, count):
+    """Insert `count` minimal raw docs for a (source_type, source_name) pair —
+    for tests exercising item_count aggregation."""
+    docs = []
+    for i in range(count):
+        docs.append(
+            {
+                "source_type": source_type,
+                "source_name": source_name,
+                "url": f"https://example.com/{source_type}-{source_name}-{i}",
+                "title": f"Item {i}",
+                "text": f"Body text {i}",
+                "published_at": datetime.now(timezone.utc),
+                "ingested_at": datetime.now(timezone.utc),
+                "content_hash": f"{source_type}-{source_name}-{i}",
+                "embedding": None,
+                "story_id": None,
+            }
+        )
+    if docs:
+        await test_db.raw.insert_many(docs)
 
 
 class FakeTelegramClient:
