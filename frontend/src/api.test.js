@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, vi } from "vitest";
-import { AUTH_EXPIRED_EVENT, apiFetch } from "./api.js";
+import { AUTH_EXPIRED_EVENT, apiFetch, getPipelineStats } from "./api.js";
 
 function stubFetchResponse({ ok = true, status = 200, body = {} } = {}) {
   const response = {
@@ -66,5 +66,16 @@ describe("apiFetch", () => {
     stubFetchResponse({ ok: false, status: 500, body: {} });
 
     await expect(apiFetch("/api/stories")).rejects.toThrow("Request failed (500)");
+  });
+
+  test("getPipelineStats fetches the pipeline stats endpoint", async () => {
+    const fetchMock = stubFetchResponse({ body: { running: false } });
+
+    await getPipelineStats();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/pipeline/stats",
+      expect.objectContaining({ headers: { "Content-Type": "application/json" } }),
+    );
   });
 });

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError
 
 from app import config, db
-from app.pipeline import clean, embed, group, ingest_rss, ingest_telegram, score, verdict
+from app.pipeline import clean, embed, group, ingest_rss, ingest_telegram, progress, score, verdict
 from app.pipeline import filter as importance_filter
 
 log = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ async def run_pipeline(tg_client, trigger):
 
     async with _lock:
         run_id = await start_run(trigger)
+        progress.begin_run(trigger)
         counts = {
             "ingested": 0,
             "deduped": 0,
@@ -84,6 +85,7 @@ async def run_pipeline(tg_client, trigger):
         except Exception as error:
             log.exception("pipeline run failed (trigger=%s)", trigger)
             errors.append({"stage": "run", "message": str(error)})
+            progress.record_error(str(error))
             status = "error"
 
         if _stop_requested:
@@ -92,6 +94,7 @@ async def run_pipeline(tg_client, trigger):
                 status = "stopped"
             log.info("pipeline run aborted by stop (trigger=%s)", trigger)
 
+        progress.end_run(status)
         await finish_run(run_id, status, counts, errors)
         return {"success": status == "success", "message": status, "run_id": str(run_id)}
 
@@ -119,6 +122,7 @@ async def finish_run(run_id, status, counts, errors):
                 "status": status,
                 "counts": counts,
                 "errors": errors,
+                "stages": progress.stage_summary(),
             }
         },
     )
@@ -130,13 +134,19 @@ async def ingest_all(tg_client, counts, errors):
     except Exception as error:
         log.exception("loading sources failed")
         errors.append({"stage": "ingest", "source": "sources-load", "message": str(error)})
+        progress.begin_stage("ingest", total=0)
+        progress.end_stage("ingest", "error")
         return
 
     telegram_channels = [doc["channel"] for doc in source_docs if doc["type"] == "telegram"]
     rss_feeds = [{"name": doc["name"], "url": doc["url"]} for doc in source_docs if doc["type"] == "rss"]
 
+    progress.begin_stage("ingest", total=len(source_docs))
+    processed = 0
+
     for channel in telegram_channels:
         if _stop_requested:
+            progress.end_stage("ingest", "stopped")
             return
         try:
             items = await ingest_telegram.fetch_new_channel_messages(tg_client, channel)
@@ -147,9 +157,12 @@ async def ingest_all(tg_client, counts, errors):
         except Exception as error:
             log.exception("telegram ingest failed (channel=%s)", channel)
             errors.append({"stage": "ingest", "source": channel, "message": str(error)})
+        processed += 1
+        progress.update_stage(current=processed, detail=f"telegram: {channel}", counts=counts)
 
     for feed in rss_feeds:
         if _stop_requested:
+            progress.end_stage("ingest", "stopped")
             return
         try:
             items = await ingest_rss.fetch_new_feed_entries(feed["name"], feed["url"])
@@ -157,6 +170,10 @@ async def ingest_all(tg_client, counts, errors):
         except Exception as error:
             log.exception("rss ingest failed (feed=%s)", feed["name"])
             errors.append({"stage": "ingest", "source": feed["name"], "message": str(error)})
+        processed += 1
+        progress.update_stage(current=processed, detail=f"rss: {feed['name']}", counts=counts)
+
+    progress.end_stage("ingest")
 
 
 async def store_items(items, counts):
@@ -184,10 +201,19 @@ async def embed_pending(counts, errors):
     # An unembedded item is always ungrouped too, and story_id (unlike the
     # vector field) has an index that serves null equality.
     docs = [doc async for doc in db.raw.find({"story_id": None, "embedding": None})]
+    progress.begin_stage("embed", total=len(docs))
+    current = 0
+    chunk_number = 0
     for start in range(0, len(docs), EMBED_CHUNK_SIZE):
         if _stop_requested:
+            progress.end_stage("embed", "stopped")
             return
-        await embed_chunk(docs[start : start + EMBED_CHUNK_SIZE], counts, errors)
+        chunk = docs[start : start + EMBED_CHUNK_SIZE]
+        chunk_number += 1
+        await embed_chunk(chunk, counts, errors)
+        current += len(chunk)
+        progress.update_stage(current=current, detail=f"chunk {chunk_number}", counts=counts)
+    progress.end_stage("embed")
 
 
 async def embed_chunk(chunk, counts, errors):
@@ -196,8 +222,10 @@ async def embed_chunk(chunk, counts, errors):
     except Exception as error:
         log.exception("embedding chunk failed (%d docs)", len(chunk))
         errors.append({"stage": "embed", "message": str(error)})
+        progress.record_embed_call(False)
         return
 
+    progress.record_embed_call(True)
     for doc, vector in zip(chunk, vectors):
         await db.raw.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vector}})
         counts["embedded"] += 1
@@ -206,31 +234,47 @@ async def embed_chunk(chunk, counts, errors):
 async def reap_orphan_stories(counts):
     """Delete story shells whose creating run died before linking the item —
     their item stayed story_id: None, so grouping will redo it this run."""
+    if _stop_requested:
+        return
     pending = [s async for s in db.stories.find({"status": "pending"})]
-    for story in pending:
+    progress.begin_stage("reap", total=len(pending))
+    for index, story in enumerate(pending):
         linked = await db.raw.count_documents({"story_id": story["_id"]})
-        if linked > 0:
-            continue
-        await db.stories.delete_one({"_id": story["_id"]})
-        counts["orphans_reaped"] += 1
+        if linked == 0:
+            await db.stories.delete_one({"_id": story["_id"]})
+            counts["orphans_reaped"] += 1
+        progress.update_stage(current=index + 1, counts=counts)
+    progress.end_stage("reap")
+
+
+def truncate_detail(text, limit=80):
+    if not text:
+        return None
+    return text[:limit]
 
 
 async def group_new_items(counts, errors):
     new_items = [
         doc async for doc in db.raw.find({"embedding": {"$ne": None}, "story_id": None})
     ]
+    progress.begin_stage("group", total=len(new_items))
     if not new_items:
+        progress.end_stage("group")
         return
 
     candidates = await load_active_candidates()
-    for item in new_items:
+    for index, item in enumerate(new_items):
         if _stop_requested:
+            progress.end_stage("group", "stopped")
             return
         try:
             await place_item(item, candidates, counts)
         except Exception as error:
             log.exception("grouping failed (item=%s)", item["_id"])
             errors.append({"stage": "group", "item": str(item["_id"]), "message": str(error)})
+        detail = truncate_detail(item.get("title") or item.get("text"))
+        progress.update_stage(current=index + 1, detail=detail, counts=counts)
+    progress.end_stage("group")
 
 
 async def load_active_candidates():
@@ -344,14 +388,19 @@ async def create_story_for_item(item, candidates, counts):
 
 async def process_dirty_stories(counts, errors):
     dirty = [s async for s in db.stories.find({"dirty": True})]
-    for story in dirty:
+    progress.begin_stage("score", total=len(dirty))
+    for index, story in enumerate(dirty):
         if _stop_requested:
+            progress.end_stage("score", "stopped")
             return
         try:
             await process_story(story, counts)
         except Exception as error:
             log.exception("story processing failed (story=%s)", story["_id"])
             errors.append({"stage": "score", "story": str(story["_id"]), "message": str(error)})
+        detail = story.get("headline") or str(story["_id"])
+        progress.update_stage(current=index + 1, detail=detail, counts=counts)
+    progress.end_stage("score")
 
 
 async def process_story(story, counts):

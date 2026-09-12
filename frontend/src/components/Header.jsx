@@ -9,6 +9,7 @@ import {
 } from "../api.js";
 import { formatTimeAgo } from "../time.js";
 
+import PipelineStatsPanel from "./PipelineStatsPanel.jsx";
 import SettingsModal from "./SettingsModal.jsx";
 import SourcesModal from "./SourcesModal.jsx";
 
@@ -21,6 +22,7 @@ const Header = ({ onRefreshed, onLogout }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const pollTimer = useRef(null);
 
   const loadStatus = useCallback(async () => {
@@ -101,11 +103,24 @@ const Header = ({ onRefreshed, onLogout }) => {
           )}
         </div>
         <div id="header-actions">
-          <button className="header-btn" onClick={startRefresh} disabled={refreshing}>
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          <button className="header-btn header-btn-secondary" onClick={togglePaused}>
-            {paused ? "Resume" : "Stop"}
+          <div id="pipeline-controls">
+            <button
+              className={paused ? "pipeline-btn pipeline-btn-start" : "pipeline-btn pipeline-btn-stop"}
+              onClick={togglePaused}
+            >
+              {paused ? "Start News Pipeline" : "Stop News Pipeline"}
+            </button>
+            <button className="pipeline-btn pipeline-btn-pull" onClick={startRefresh} disabled={refreshing}>
+              {refreshing ? "Pulling…" : "Get Single News Pull"}
+            </button>
+          </div>
+          <span className="header-divider" aria-hidden="true" />
+          <button
+            className={`header-btn header-btn-secondary stats-btn${showStats ? " active" : ""}${status && status.running ? " is-running" : ""}`}
+            aria-pressed={showStats}
+            onClick={() => setShowStats((v) => !v)}
+          >
+            Pipeline Stats
           </button>
           <button
             className="header-btn header-btn-secondary"
@@ -125,6 +140,7 @@ const Header = ({ onRefreshed, onLogout }) => {
         </div>
         {showSources && <SourcesModal onClose={() => setShowSources(false)} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+        <PipelineStatsPanel open={showStats} onClose={() => setShowStats(false)} />
       </header>
     </div>
   );
@@ -134,7 +150,7 @@ const buildBannerMessage = (status, statusFailed) => {
   if (statusFailed) return "Pipeline status unknown — can't reach the backend.";
   if (!status || !status.paused) return null;
   if (status.running) return "Auto-scraping is OFF — a one-off manual update is running now.";
-  return "Scraping is OFF — no news is being collected or scored. Press Resume to start.";
+  return "Scraping is OFF — no news is being collected or scored. Press Start News Pipeline to start.";
 };
 
 const buildStatusDotClass = (status) => {

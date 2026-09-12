@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import pytest
 import pytest_asyncio
+from bson import ObjectId
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -234,3 +236,197 @@ async def test_pipeline_stop_resume_require_auth(client):
     client.cookies.clear()
     assert (await client.post("/api/pipeline/stop")).status_code == 401
     assert (await client.post("/api/pipeline/resume")).status_code == 401
+
+
+def make_raw(source_type, source_name, hours_old, story_id=None, embedding=None, suffix=""):
+    now = datetime.now(timezone.utc)
+    at = now - timedelta(hours=hours_old)
+    return {
+        "source_type": source_type,
+        "source_name": source_name,
+        "url": f"https://example.com/{source_name}/{hours_old}{suffix}",
+        "title": "Title",
+        "text": "some cleaned body text",
+        "published_at": at,
+        "ingested_at": at,
+        "content_hash": f"hash-{source_name}-{hours_old}-{suffix}",
+        "embedding": embedding,
+        "story_id": story_id,
+    }
+
+
+async def test_pipeline_stats_requires_auth(client):
+    client.cookies.clear()
+    response = await client.get("/api/pipeline/stats")
+    assert response.status_code == 401
+
+
+async def test_pipeline_stats_empty_db(client, monkeypatch):
+    monkeypatch.delenv("FILTER_MODEL", raising=False)
+    monkeypatch.delenv("SCORING_MODEL", raising=False)
+    monkeypatch.setattr(config, "FILTER_MODEL", "gpt-5.6-luna")
+    monkeypatch.setattr(config, "SCORING_MODEL", "gpt-5.6-sol")
+
+    response = await client.get("/api/pipeline/stats")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["running"] is False
+    assert body["paused"] is True
+    assert body["recent_runs"] == []
+
+    assert set(body["live"]["stages"]) == {"ingest", "embed", "reap", "group", "score"}
+
+    totals = body["totals"]
+    assert totals["raw_items"] == 0
+    assert totals["raw_embedded"] == 0
+    assert totals["raw_ungrouped"] == 0
+    assert totals["raw_last_24h"] == 0
+    assert totals["stories"] == {"pending": 0, "filtered": 0, "scored": 0, "dirty": 0, "total": 0}
+    assert totals["sources"] == {
+        "rss": {"enabled": 0, "disabled": 0},
+        "telegram": {"enabled": 0, "disabled": 0},
+    }
+    assert totals["items_by_source"] == []
+
+    assert body["config"] == {
+        "poll_interval_minutes": config.POLL_INTERVAL_MINUTES,
+        "sim_high": config.SIM_HIGH,
+        "sim_low": config.SIM_LOW,
+        "active_window_hours": config.ACTIVE_WINDOW_HOURS,
+        "decay_half_life_hours": config.DECAY_HALF_LIFE_HOURS,
+        "embed_model": config.EMBED_MODEL,
+        "filter_model": "gpt-5.6-luna",
+        "scoring_model": "gpt-5.6-sol",
+    }
+
+
+async def test_pipeline_stats_recent_runs_and_totals(client, test_db):
+    now = datetime.now(timezone.utc)
+    await test_db.pipeline_runs.insert_many(
+        [
+            {
+                "trigger": "schedule",
+                "started_at": now - timedelta(hours=2),
+                "finished_at": now - timedelta(hours=2) + timedelta(minutes=3),
+                "status": "success",
+                "counts": {"ingested": 5},
+                "errors": [],
+            },
+            {
+                "trigger": "manual",
+                "started_at": now - timedelta(minutes=30),
+                "finished_at": now - timedelta(minutes=25),
+                "status": "success",
+                "counts": {"ingested": 2},
+                "errors": [],
+            },
+            {
+                "trigger": "manual",
+                "started_at": now - timedelta(minutes=1),
+                "finished_at": None,
+                "status": "running",
+                "counts": {},
+                "errors": [],
+            },
+        ]
+    )
+
+    story_id_a = ObjectId()
+    story_id_b = ObjectId()
+    await test_db.raw.insert_many(
+        [
+            make_raw("rss", "Feed A", hours_old=1, story_id=None, embedding=None, suffix="-1"),
+            make_raw("rss", "Feed A", hours_old=30, story_id=story_id_a, embedding=[1.0], suffix="-2"),
+            make_raw("telegram", "Chan B", hours_old=2, story_id=story_id_b, embedding=[1.0], suffix="-3"),
+        ]
+    )
+
+    dirty_pending = make_story("Tech", 40, 0, status="pending", headline="dirty pending")
+    dirty_pending["dirty"] = True
+    await test_db.stories.insert_many(
+        [
+            make_story("Tech", 80, 0, status="scored", headline="scored one"),
+            make_story("Tech", 50, 0, status="pending", headline="pending one"),
+            make_story("Tech", 60, 0, status="filtered", headline="filtered one"),
+            dirty_pending,
+        ]
+    )
+
+    response = await client.get("/api/pipeline/stats")
+
+    assert response.status_code == 200
+    body = response.json()
+
+    runs = body["recent_runs"]
+    assert [r["trigger"] for r in runs] == ["manual", "manual", "schedule"]
+    assert runs[0]["finished_at"] is None
+    assert runs[0]["duration_seconds"] is None
+    assert runs[1]["duration_seconds"] == pytest.approx(300.0)
+    assert runs[2]["duration_seconds"] == pytest.approx(180.0)
+
+    totals = body["totals"]
+    assert totals["raw_items"] == 3
+    assert totals["raw_embedded"] == 2
+    assert totals["raw_ungrouped"] == 1
+    assert totals["raw_last_24h"] == 2  # the 30h-old item falls outside the window
+
+    assert totals["stories"]["pending"] == 2
+    assert totals["stories"]["filtered"] == 1
+    assert totals["stories"]["scored"] == 1
+    assert totals["stories"]["dirty"] == 1
+    assert totals["stories"]["total"] == 4
+
+    items_by_source = {
+        (row["source_name"], row["source_type"]): row["count"] for row in totals["items_by_source"]
+    }
+    assert items_by_source[("Feed A", "rss")] == 2
+    assert items_by_source[("Chan B", "telegram")] == 1
+
+
+async def test_pipeline_stats_sources_counts(client, test_db):
+    now = datetime.now(timezone.utc)
+    await test_db.sources.insert_many(
+        [
+            {
+                "type": "rss",
+                "name": "Feed A",
+                "url": "https://a.example.com/feed",
+                "channel": None,
+                "enabled": True,
+                "created_at": now,
+            },
+            {
+                "type": "rss",
+                "name": "Feed B",
+                "url": "https://b.example.com/feed",
+                "channel": None,
+                "enabled": False,
+                "created_at": now,
+            },
+            {
+                "type": "telegram",
+                "name": "chan1",
+                "url": None,
+                "channel": "chan1",
+                "enabled": True,
+                "created_at": now,
+            },
+            {
+                "type": "telegram",
+                "name": "chan2",
+                "url": None,
+                "channel": "chan2",
+                "enabled": True,
+                "created_at": now,
+            },
+        ]
+    )
+
+    response = await client.get("/api/pipeline/stats")
+
+    assert response.status_code == 200
+    assert response.json()["totals"]["sources"] == {
+        "rss": {"enabled": 1, "disabled": 1},
+        "telegram": {"enabled": 2, "disabled": 0},
+    }

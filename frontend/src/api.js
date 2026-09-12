@@ -33,6 +33,8 @@ export const getStory = (id) => apiFetch(`/api/stories/${id}`);
 
 export const getPipelineStatus = () => apiFetch("/api/pipeline/status");
 
+export const getPipelineStats = () => apiFetch("/api/pipeline/stats");
+
 export const triggerPipelineRun = () => apiFetch("/api/pipeline/run", { method: "POST" });
 
 export const stopPipeline = () => apiFetch("/api/pipeline/stop", { method: "POST" });

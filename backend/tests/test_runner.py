@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import config, main
+from app import config, db, main
 from app.pipeline import embed, ingest_telegram, runner, score
 from app.pipeline import filter as importance_filter
 from tests.test_ingest_telegram import FakeTelegramClient, make_message
@@ -144,6 +144,24 @@ async def test_failing_source_is_isolated_and_recorded(test_db, pipeline_env, mo
     assert "channel unreachable" in run["errors"][0]["message"]
 
 
+async def test_ingest_sources_load_failure_still_ends_ingest_stage_as_error(test_db, monkeypatch):
+    """db.sources.find raising must not leave the ingest stage stuck at 'idle' —
+    the run should still record the ingest error and mark that stage 'error'."""
+
+    def broken_find(*args, **kwargs):
+        raise RuntimeError("sources collection unreachable")
+
+    monkeypatch.setattr(db.sources, "find", broken_find)
+
+    result = await runner.run_pipeline(None, trigger="manual")
+
+    assert result["success"] is True  # ingest_all isolates this failure; the run still completes
+    run = await test_db.pipeline_runs.find_one({})
+    assert run["errors"][0]["stage"] == "ingest"
+    assert run["errors"][0]["source"] == "sources-load"
+    assert run["stages"]["ingest"]["status"] == "error"
+
+
 async def test_dirty_scored_story_is_rescored_without_filter(test_db, pipeline_env, monkeypatch):
     async def exploding_filter(texts):
         raise AssertionError("filter must not run for already-scored stories")
@@ -268,6 +286,11 @@ async def test_stop_between_sources_skips_remaining(test_db, pipeline_env, monke
 
     assert result["message"] == "stopped"
     assert fetched == ["a"]
+    run = await test_db.pipeline_runs.find_one({})
+    assert run["stages"]["ingest"]["status"] == "stopped"
+    assert run["stages"]["ingest"]["current"] == 1
+    assert run["stages"]["ingest"]["total"] == 2
+    assert run["stages"]["reap"]["status"] == "idle"
 
 
 async def test_scheduler_skips_run_while_paused(monkeypatch):

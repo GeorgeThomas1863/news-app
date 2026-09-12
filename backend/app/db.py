@@ -52,6 +52,7 @@ async def ensure_indexes():
             [("status", 1), ("topic", 1), ("latest_item_at", -1)]
         )  # rank_topic, per dashboard request
         await stories.create_index("dirty")  # process_dirty_stories, per pipeline run
+        await pipeline_runs.create_index([("started_at", -1)])  # recent-runs listing, pipeline stats
         await sources.create_index(
             "url", unique=True, partialFilterExpression={"type": "rss"}
         )

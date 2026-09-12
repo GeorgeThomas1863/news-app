@@ -1,7 +1,7 @@
 import logging
 
 from app import config, prompts, settings
-from app.pipeline import llm
+from app.pipeline import llm, progress
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,13 @@ async def score_story(items):
     models = await settings.get_effective_models()
     result = await llm.call_json(models["scoring_model"], prompts.SCORING_SYSTEM_PROMPT, user_text, SCHEMA)
     if result is None:
+        progress.record_llm_call("score", False)
         return None
     if not validate_score_result(result):
         log.error("scoring result failed validation: %s", result)
+        progress.record_llm_call("score", False)
         return None
+    progress.record_llm_call("score", True)
     return result
 
 

@@ -1,5 +1,5 @@
 from app import prompts, settings
-from app.pipeline import llm
+from app.pipeline import llm, progress
 
 SCHEMA = {
     "type": "object",
@@ -14,6 +14,7 @@ async def ask_same_story(item_text, headline, sample_texts):
     user_text = build_verdict_input(item_text, headline, sample_texts)
     models = await settings.get_effective_models()
     result = await llm.call_json(models["filter_model"], prompts.VERDICT_SYSTEM_PROMPT, user_text, SCHEMA)
+    progress.record_llm_call("verdict", result is not None)
     if result is None:
         return False
     return bool(result.get("same_story", False))
