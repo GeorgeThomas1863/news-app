@@ -52,3 +52,8 @@ export const updateSource = (id, fields) =>
 
 export const deleteSource = (id) =>
   apiFetch(`/api/sources/${id}`, { method: "DELETE" });
+
+export const getSettings = () => apiFetch("/api/settings");
+
+export const updateSettings = (fields) =>
+  apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(fields) });

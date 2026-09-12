@@ -1,4 +1,4 @@
-from app import config, prompts
+from app import prompts, settings
 from app.pipeline import llm
 
 SCHEMA = {
@@ -12,7 +12,8 @@ SCHEMA = {
 async def ask_same_story(item_text, headline, sample_texts):
     """Haiku verdict for gray-zone grouping. Defaults to False (new story) on LLM failure."""
     user_text = build_verdict_input(item_text, headline, sample_texts)
-    result = await llm.call_json(config.FILTER_MODEL, prompts.VERDICT_SYSTEM_PROMPT, user_text, SCHEMA)
+    models = await settings.get_effective_models()
+    result = await llm.call_json(models["filter_model"], prompts.VERDICT_SYSTEM_PROMPT, user_text, SCHEMA)
     if result is None:
         return False
     return bool(result.get("same_story", False))

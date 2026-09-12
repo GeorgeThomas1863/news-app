@@ -1,6 +1,6 @@
 import logging
 
-from app import config, prompts
+from app import config, prompts, settings
 from app.pipeline import llm
 
 log = logging.getLogger(__name__)
@@ -21,7 +21,8 @@ SCHEMA = {
 async def score_story(items):
     """Sonnet structured scoring of one story. Validated result dict, or None (story stays dirty)."""
     user_text = build_scoring_input(items)
-    result = await llm.call_json(config.SCORING_MODEL, prompts.SCORING_SYSTEM_PROMPT, user_text, SCHEMA)
+    models = await settings.get_effective_models()
+    result = await llm.call_json(models["scoring_model"], prompts.SCORING_SYSTEM_PROMPT, user_text, SCHEMA)
     if result is None:
         return None
     if not validate_score_result(result):

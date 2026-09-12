@@ -16,7 +16,17 @@ def call_log(monkeypatch):
         )
         return state["queue"].pop(0)
 
+    async def fake_get_effective_models():
+        return {
+            "filter_model": config.FILTER_MODEL,
+            "scoring_model": config.SCORING_MODEL,
+            "sources": {"filter_model": "default", "scoring_model": "default"},
+        }
+
     monkeypatch.setattr(verdict.llm, "call_json", fake_call_json)
+    monkeypatch.setattr(verdict.settings, "get_effective_models", fake_get_effective_models)
+    monkeypatch.setattr(importance_filter.settings, "get_effective_models", fake_get_effective_models)
+    monkeypatch.setattr(score.settings, "get_effective_models", fake_get_effective_models)
     return state
 
 
@@ -115,3 +125,43 @@ async def test_score_story_returns_none_when_llm_fails(call_log):
     result = await score.score_story(_story_items())
 
     assert result is None
+
+
+async def test_filter_uses_mongo_stored_model(test_db, monkeypatch):
+    """filter.is_possibly_important resolves filter_model via settings at call time."""
+    from app import settings as real_settings
+
+    await real_settings.update_models(filter_model="claude-haiku-4-5")
+
+    calls = []
+
+    async def fake_call_json(model, system, user_text, schema):
+        calls.append(model)
+        return {"important": True}
+
+    monkeypatch.setattr(importance_filter.llm, "call_json", fake_call_json)
+
+    result = await importance_filter.is_possibly_important(["story text"])
+
+    assert result is True
+    assert calls == ["claude-haiku-4-5"]
+
+
+async def test_score_story_uses_mongo_stored_model(test_db, monkeypatch):
+    """score.score_story resolves scoring_model via settings at call time."""
+    from app import settings as real_settings
+
+    await real_settings.update_models(scoring_model="gpt-5.6-terra")
+
+    calls = []
+
+    async def fake_call_json(model, system, user_text, schema):
+        calls.append(model)
+        return {"score": 50, "topic": "Tech", "headline": "H", "summary": "S"}
+
+    monkeypatch.setattr(score.llm, "call_json", fake_call_json)
+
+    result = await score.score_story(_story_items())
+
+    assert result is not None
+    assert calls == ["gpt-5.6-terra"]

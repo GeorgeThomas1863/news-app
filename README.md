@@ -32,11 +32,14 @@ MONGO_URI=
 PW_HASH=            # bcrypt hash — generate: uv run python -m app.hash_pw
 JWT_SECRET=
 ANTHROPIC_API_KEY=
+OPENAI_API_KEY=     # required while an OpenAI model is the default or selected in Settings
 VOYAGE_API_KEY=
 TG_API_ID=
 TG_API_HASH=
 TG_SESSION=
 SECURE_COOKIES=true # cookie `secure` flag — true behind HTTPS, false for local HTTP dev
+FILTER_MODEL=       # optional override (default gpt-5.6-luna)
+SCORING_MODEL=      # optional override (default gpt-5.6-sol)
 FRONTEND_PORT=      # optional host-port overrides (defaults above)
 BACKEND_PORT=
 ```
@@ -46,7 +49,15 @@ BACKEND_PORT=
   StringSession minted once on any machine — `uv run python -m app.tg_session` prints
   it (an existing string from another project also works). The deployed app never
   prompts for a login code.
-- Behavior (seed sources, topics, thresholds, intervals, models): `backend/app/config.py`.
+- `OPENAI_API_KEY` is required whenever an OpenAI model is in use — including the
+  built-in defaults (`gpt-5.6-luna` / `gpt-5.6-sol`). Startup fails if the effective
+  env/default models are OpenAI and the key is missing; it is only optional when both
+  models are set to Anthropic.
+- `FILTER_MODEL` and `SCORING_MODEL` are optional env-var overrides for the pipeline's
+  LLM models (resolved at runtime: Mongo setting → env var → default). Defaults:
+  filter `gpt-5.6-luna`, scoring `gpt-5.6-sol`. Both are user-selectable from the
+  **Models** tab in the Settings panel (gear icon in the UI header).
+- Behavior (seed sources, topics, thresholds, intervals): `backend/app/config.py`.
 - Scoring rubric: `backend/app/prompts.py` (`SCORING_SYSTEM_PROMPT`).
 
 ## Deploy

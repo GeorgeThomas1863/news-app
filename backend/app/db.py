@@ -14,11 +14,12 @@ stories = None
 source_state = None
 pipeline_runs = None
 sources = None
+settings = None
 
 
 async def init_db(uri=None, db_name=None):
     """Connect and bind collection handles. Called from the app lifespan (and test fixtures)."""
-    global client, db, raw, stories, source_state, pipeline_runs, sources
+    global client, db, raw, stories, source_state, pipeline_runs, sources, settings
 
     # tz_aware so stored datetimes come back UTC-aware — decay math mixes them with datetime.now(timezone.utc)
     client = AsyncMongoClient(uri or config.MONGO_URI, tz_aware=True)
@@ -28,6 +29,7 @@ async def init_db(uri=None, db_name=None):
     source_state = db["source_state"]
     pipeline_runs = db["pipeline_runs"]
     sources = db["sources"]
+    settings = db["settings"]
 
     await ensure_indexes()
 

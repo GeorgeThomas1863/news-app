@@ -12,6 +12,7 @@ DB_NAME = os.environ.get("DB_NAME", "news_app")
 PW_HASH = os.environ.get("PW_HASH")
 JWT_SECRET = os.environ.get("JWT_SECRET")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY")
 TG_API_ID = os.environ.get("TG_API_ID")
 TG_API_HASH = os.environ.get("TG_API_HASH")
@@ -65,8 +66,8 @@ MIN_TEXT_LENGTH = 40
 
 # --- models ---
 EMBED_MODEL = "voyage-4-lite"
-FILTER_MODEL = "claude-haiku-4-5"
-SCORING_MODEL = "claude-sonnet-5"
+FILTER_MODEL = os.environ.get("FILTER_MODEL", "gpt-5.6-luna")
+SCORING_MODEL = os.environ.get("SCORING_MODEL", "gpt-5.6-sol")
 
 # --- auth ---
 JWT_EXPIRY_HOURS = 24

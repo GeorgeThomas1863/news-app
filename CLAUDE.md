@@ -45,8 +45,11 @@ Fixtures: `test_db` drops `news_app_test` before and after each test;
 - **One process runs API + pipeline**: `main.py` lifespan connects Mongo and Telethon
   (`app.state.tg_client`), then loops `runner.run_pipeline` every 15 min. Stages:
   ingest (TG/RSS) → clean/dedupe → embed (Voyage) → group (cosine vs active stories;
-  Haiku verdict on borderline) → importance filter (Haiku) → score (Sonnet);
-  `runner.py` orchestrates, one module per stage.
+  filter-model verdict on borderline) → importance filter (filter model) → score (scoring model);
+  `runner.py` orchestrates, one module per stage. Filter and scoring models are
+  user-configurable via the UI (Mongo `settings` doc → env `FILTER_MODEL`/`SCORING_MODEL` →
+  defaults gpt-5.6-luna / gpt-5.6-sol). Provider inferred from model prefix (claude-* /
+  gpt-*) and routed in `app/pipeline/llm.py`.
 - **`dirty` flag = the retry mechanism.** New items set `dirty: true`; cleared only on
   successful filter/score. `pipeline/llm.py: call_json` returns **None** on API failure
   or malformed JSON (one retry) — callers skip, never raise, story retried next cycle.

@@ -9,6 +9,7 @@ from telethon.sessions import StringSession
 from app import auth, config, db
 from app.pipeline import runner
 from app.routes import pipeline as pipeline_routes
+from app.routes import settings as settings_routes
 from app.routes import sources as sources_routes
 from app.routes import stories as stories_routes
 
@@ -44,6 +45,8 @@ def validate_required_env():
         "ANTHROPIC_API_KEY": config.ANTHROPIC_API_KEY,
         "VOYAGE_API_KEY": config.VOYAGE_API_KEY,
     }
+    if config.FILTER_MODEL.startswith("gpt-") or config.SCORING_MODEL.startswith("gpt-"):
+        required["OPENAI_API_KEY"] = config.OPENAI_API_KEY
     if config.TELEGRAM_CHANNELS:
         required.update(
             {
@@ -92,6 +95,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(stories_routes.router, prefix="/api")
 app.include_router(pipeline_routes.router, prefix="/api")
 app.include_router(sources_routes.router, prefix="/api")
+app.include_router(settings_routes.router, prefix="/api")
 
 
 if __name__ == "__main__":

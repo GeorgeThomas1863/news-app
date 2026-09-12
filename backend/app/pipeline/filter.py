@@ -1,4 +1,4 @@
-from app import config, prompts
+from app import prompts, settings
 from app.pipeline import llm
 
 SCHEMA = {
@@ -12,7 +12,8 @@ SCHEMA = {
 async def is_possibly_important(story_texts):
     """Haiku importance gate. True/False verdict; None when the LLM failed (story stays dirty)."""
     user_text = build_filter_input(story_texts)
-    result = await llm.call_json(config.FILTER_MODEL, prompts.FILTER_SYSTEM_PROMPT, user_text, SCHEMA)
+    models = await settings.get_effective_models()
+    result = await llm.call_json(models["filter_model"], prompts.FILTER_SYSTEM_PROMPT, user_text, SCHEMA)
     if result is None:
         return None
     return bool(result.get("important", False))

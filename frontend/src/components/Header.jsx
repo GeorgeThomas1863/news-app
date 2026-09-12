@@ -9,6 +9,7 @@ import {
 } from "../api.js";
 import { formatTimeAgo } from "../time.js";
 
+import SettingsModal from "./SettingsModal.jsx";
 import SourcesModal from "./SourcesModal.jsx";
 
 const POLL_INTERVAL_MS = 5000;
@@ -19,6 +20,7 @@ const Header = ({ onRefreshed, onLogout }) => {
   const [statusFailed, setStatusFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const pollTimer = useRef(null);
 
   const loadStatus = useCallback(async () => {
@@ -111,11 +113,18 @@ const Header = ({ onRefreshed, onLogout }) => {
           >
             Sources
           </button>
+          <button
+            className="header-btn header-btn-secondary"
+            onClick={() => setShowSettings(true)}
+          >
+            Models
+          </button>
           <button className="header-btn header-btn-secondary" onClick={submitLogout}>
             Logout
           </button>
         </div>
         {showSources && <SourcesModal onClose={() => setShowSources(false)} />}
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </header>
     </div>
   );
